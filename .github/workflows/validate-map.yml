@@ -1,0 +1,14 @@
+name: Validate Maps
+
+on:
+  push:
+    paths: ['maps/**']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm validate-maps
