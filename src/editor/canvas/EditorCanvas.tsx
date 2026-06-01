@@ -1,8 +1,51 @@
 import React, { useCallback, useEffect, useRef } from 'react'
 import { useStore } from '../store'
-import { renderFrame, type RenderState } from './renderer'
-import { getAllDestinations } from '../../core/roomRegions'
+import { renderFrame, type RenderState, type GhostGroupInfo } from './renderer'
+import { getAllDestinations, findRoomRegions } from '../../core/roomRegions'
+import type { RoomRegion, BuildingMap, MapFloor } from '../../core/types'
 import { setupInteraction, getStraightGhost } from './interaction'
+
+function findStairElevatorGroups(floor: MapFloor): GhostGroupInfo[] {
+  const visited = new Set<string>()
+  const groups: GhostGroupInfo[] = []
+  const DIRS4 = [[0, 1], [0, -1], [1, 0], [-1, 0]]
+
+  for (let r = 0; r < floor.height; r++) {
+    for (let c = 0; c < floor.width; c++) {
+      const key = `${r},${c}`
+      if (visited.has(key)) continue
+      const bt = floor.base[r]?.[c]
+      if (bt !== 'stairs' && bt !== 'elevator') continue
+      visited.add(key)
+
+      const tiles: Array<{ row: number; col: number }> = []
+      const queue = [{ row: r, col: c }]
+      while (queue.length > 0) {
+        const cur = queue.pop()!
+        tiles.push(cur)
+        for (const [dr, dc] of DIRS4) {
+          const nr = cur.row + dr
+          const nc = cur.col + dc
+          const nk = `${nr},${nc}`
+          if (visited.has(nk)) continue
+          if (floor.base[nr]?.[nc] !== bt) continue
+          visited.add(nk)
+          queue.push({ row: nr, col: nc })
+        }
+      }
+
+      const anchorRow = Math.min(...tiles.map((t) => t.row))
+      const anchorCol = Math.min(...tiles.filter((t) => t.row === anchorRow).map((t) => t.col))
+      groups.push({
+        type: bt as 'stairs' | 'elevator',
+        tiles,
+        anchor: { row: anchorRow, col: anchorCol },
+      })
+    }
+  }
+
+  return groups
+}
 
 export default function EditorCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -38,11 +81,17 @@ export default function EditorCanvas() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    let lastW = -1, lastH = -1
     const resize = () => {
       const parent = canvas.parentElement
-      if (parent) {
-        canvas.width = parent.clientWidth
-        canvas.height = parent.clientHeight
+      if (!parent) return
+      const pw = parent.clientWidth
+      const ph = parent.clientHeight
+      if (pw !== lastW || ph !== lastH) {
+        canvas.width = pw
+        canvas.height = ph
+        lastW = pw
+        lastH = ph
       }
     }
     resize()
@@ -50,9 +99,54 @@ export default function EditorCanvas() {
 
     let head = 0
     let lastTime = performance.now()
-    const loop = (now: number) => {
-      resize()
 
+    let cachedFloorRegions: { floorIdx: number; regions: RoomRegion[] } | null = null
+    let cachedGroupsByFloor: Map<number, GhostGroupInfo[]> | null = null
+    let lastGroupsMap: BuildingMap | null = null
+    let cachedDests: ReturnType<typeof getAllDestinations> = []
+    let lastDestsMap: BuildingMap | null = null
+
+    function getStairElevatorGroups(floor: MapFloor) {
+      return cachedGroupsByFloor?.get(floor.floorIndex) ?? findStairElevatorGroups(floor)
+    }
+
+    function computeGhostGroups(
+      s: ReturnType<typeof useStore.getState>,
+      curFloor: MapFloor,
+    ): GhostGroupInfo[] {
+      if (cachedGroupsByFloor === null || s.map !== lastGroupsMap) {
+        cachedGroupsByFloor = new Map()
+        for (const f of s.map.floors) {
+          cachedGroupsByFloor.set(f.floorIndex, findStairElevatorGroups(f))
+        }
+        lastGroupsMap = s.map
+      }
+
+      const result: GhostGroupInfo[] = []
+      const curBid = curFloor.buildingId
+
+      for (const f of s.map.floors) {
+        if (f.floorIndex === s.activeFloor) continue
+        const otherBid = f.buildingId
+        if (curBid && otherBid && curBid !== otherBid) continue
+
+        const groups = cachedGroupsByFloor.get(f.floorIndex) ?? []
+        for (const g of groups) {
+          const meta = f.meta[`${g.anchor.row},${g.anchor.col}`]
+          let connects = false
+          if (g.type === 'stairs') {
+            if (meta?.toFloorSuperior === s.activeFloor || meta?.toFloorInferior === s.activeFloor) connects = true
+          } else if (g.type === 'elevator') {
+            if (meta?.connectedFloors?.includes(s.activeFloor)) connects = true
+          }
+          if (connects) result.push(g)
+        }
+      }
+
+      return result
+    }
+
+    const loop = (now: number) => {
       const s = useStore.getState()
       const path = s.simulationPath
 
@@ -64,8 +158,31 @@ export default function EditorCanvas() {
         animRef.current = headIdx
 
         const parts = path[headIdx]?.split(':')
-        if (parts && Number(parts[0]) !== s.activeFloor) {
-          s.setActiveFloor(Number(parts[0]))
+        if (parts) {
+          const curFloor = Number(parts[0])
+          if (curFloor !== s.activeFloor) {
+            s.setActiveFloor(curFloor)
+          } else {
+            const floor = s.map.floors.find((f) => f.floorIndex === curFloor)
+            if (floor) {
+              const r = Number(parts[1]), c = Number(parts[2])
+              const bt = floor.base[r]?.[c]
+              if (bt === 'stairs' || bt === 'elevator') {
+                const meta = floor.meta[`${r},${c}`]
+                let targetFloor: number | undefined
+                if (bt === 'stairs') {
+                  if (meta?.toFloorInferior != null) targetFloor = meta.toFloorInferior
+                  else if (meta?.toFloorSuperior != null) targetFloor = meta.toFloorSuperior
+                } else if (bt === 'elevator') {
+                  const conns = meta?.connectedFloors
+                  if (conns && conns.length > 0) targetFloor = conns.find((f) => f !== curFloor)
+                }
+                if (targetFloor != null && targetFloor !== curFloor) {
+                  s.setActiveFloor(targetFloor)
+                }
+              }
+            }
+          }
         }
       } else {
         head = 0
@@ -73,7 +190,35 @@ export default function EditorCanvas() {
         animRef.current = 0
       }
 
-      const allDests = getAllDestinations(s.map)
+      const curFloor = s.map.floors.find((f) => f.floorIndex === s.activeFloor)
+
+      let regions: RoomRegion[] | undefined
+      if (curFloor) {
+        if (cachedFloorRegions?.floorIdx === s.activeFloor) {
+          regions = cachedFloorRegions.regions
+        } else {
+          regions = findRoomRegions(curFloor)
+          cachedFloorRegions = { floorIdx: s.activeFloor, regions }
+        }
+      }
+
+      let ghostGroups: GhostGroupInfo[] | undefined
+      let stairBorders: GhostGroupInfo[] | undefined
+      if (curFloor) {
+        ghostGroups = computeGhostGroups(s, curFloor)
+        stairBorders = cachedGroupsByFloor?.get(s.activeFloor) ?? findStairElevatorGroups(curFloor)
+      }
+
+      let allDests: ReturnType<typeof getAllDestinations> = []
+      if (s.mode === 'simulate') {
+        if (s.map !== lastDestsMap) {
+          allDests = getAllDestinations(s.map)
+          lastDestsMap = s.map
+          cachedDests = allDests
+        } else {
+          allDests = cachedDests
+        }
+      }
 
       const findLabel = (id: string | null) => {
         if (!id) return undefined
@@ -101,6 +246,9 @@ export default function EditorCanvas() {
         straightGhost: getStraightGhost(),
         destALabel: findLabel(s.simulationRoomA),
         destBLabel: findLabel(s.simulationRoomB),
+        cachedRegions: regions,
+        cachedGhostGroups: ghostGroups,
+        cachedStairBorders: stairBorders,
       }
 
       renderFrame(ctx, state)

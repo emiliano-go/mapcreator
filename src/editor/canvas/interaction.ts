@@ -57,8 +57,6 @@ export function setupInteraction(
     const { offsetX, offsetY } = getOffset()
     const tileSize = getTileSize()
 
-    if (store.mode !== 'edit' && e.button !== 2) return
-
     if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
       state.isPanning = true
       state.lastPanX = e.clientX - offsetX
@@ -66,6 +64,8 @@ export function setupInteraction(
       canvas.style.cursor = 'grabbing'
       return
     }
+
+    if (store.mode !== 'edit' && e.button !== 2) return
 
     if (e.button === 2) {
       const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)

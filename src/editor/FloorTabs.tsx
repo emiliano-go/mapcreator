@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useStore } from './store'
 import { validateFloorConnectivity } from '../core/validator'
 
@@ -10,6 +10,21 @@ export default function FloorTabs() {
   const addFloor = useStore((s) => s.addFloor)
   const removeFloor = useStore((s) => s.removeFloor)
   const renameFloor = useStore((s) => s.renameFloor)
+  const duplicateFloor = useStore((s) => s.duplicateFloor)
+
+  const [dupPos, setDupPos] = useState<{ top: number; left: number; floorIndex: number } | null>(null)
+  const dupRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!dupPos) return
+    const handler = (e: MouseEvent) => {
+      if (dupRef.current && !dupRef.current.contains(e.target as Node)) {
+        setDupPos(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [dupPos])
 
   const errors = validationErrors.length > 0 ? validationErrors : (() => {
     try {
@@ -47,6 +62,20 @@ export default function FloorTabs() {
               {isActive && (
                 <div className="flex gap-0.5">
                   <button
+                    onClick={(e) => {
+                      if (dupPos && dupPos.floorIndex === floor.floorIndex) {
+                        setDupPos(null)
+                      } else {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setDupPos({ top: rect.bottom + 4, left: rect.left, floorIndex: floor.floorIndex })
+                      }
+                    }}
+                    className="text-gray-500 hover:text-gray-300 text-xs px-1"
+                    title="Duplicate floor"
+                  >
+                    ⧉
+                  </button>
+                  <button
                     onClick={() => {
                       const label = prompt('Floor name:', floor.label)
                       if (label?.trim()) renameFloor(floor.floorIndex, label.trim())
@@ -77,6 +106,27 @@ export default function FloorTabs() {
       >
         +
       </button>
+
+      {dupPos && (
+        <div
+          ref={dupRef}
+          style={{ position: 'fixed', zIndex: 9999, top: dupPos.top, left: dupPos.left }}
+          className="bg-gray-700 border border-gray-600 rounded shadow-lg text-xs whitespace-nowrap"
+        >
+          <button
+            onClick={() => { duplicateFloor(dupPos.floorIndex, 'full'); setDupPos(null) }}
+            className="block w-full text-left px-3 py-1.5 text-gray-200 hover:bg-gray-600"
+          >
+            Full content
+          </button>
+          <button
+            onClick={() => { duplicateFloor(dupPos.floorIndex, 'size'); setDupPos(null) }}
+            className="block w-full text-left px-3 py-1.5 text-gray-200 hover:bg-gray-600"
+          >
+            Size only
+          </button>
+        </div>
+      )}
     </div>
   )
 }

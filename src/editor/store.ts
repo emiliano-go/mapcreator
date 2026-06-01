@@ -95,6 +95,7 @@ export interface EditorStore {
   clearSimulation: () => void
 
   addFloor: (label?: string) => void
+  duplicateFloor: (floorIndex: number, mode: 'full' | 'size') => void
   removeFloor: (floorIndex: number) => void
   renameFloor: (floorIndex: number, label: string) => void
   reorderFloor: (floorIndex: number, direction: 'up' | 'down') => void
@@ -522,6 +523,54 @@ export const useStore = create<EditorStore>((set, get) => ({
       map: {
         ...map,
         floors: [...map.floors, floor],
+        updatedAt: new Date().toISOString(),
+      },
+      activeFloor: newIndex,
+    })
+    get().runValidation()
+  },
+
+  duplicateFloor: (floorIndex, mode) => {
+    const { map } = get()
+    const source = map.floors.find((f) => f.floorIndex === floorIndex)
+    if (!source) return
+
+    get().pushHistory()
+
+    const maxIndex = Math.max(...map.floors.map((f) => f.floorIndex), -1)
+    const newIndex = maxIndex + 1
+
+    let newFloor: MapFloor
+    if (mode === 'full') {
+      newFloor = {
+        ...source,
+        floorIndex: newIndex,
+        order: map.floors.length,
+        label: source.label + ' (copy)',
+        base: source.base.map((r) => [...r]),
+        overlay: source.overlay.map((r) => [...r]),
+        meta: { ...source.meta },
+      }
+    } else {
+      newFloor = {
+        ...source,
+        floorIndex: newIndex,
+        order: map.floors.length,
+        label: `Floor ${newIndex + 1}`,
+        base: Array.from({ length: source.height }, () =>
+          Array(source.width).fill('floor') as TileType[],
+        ),
+        overlay: Array.from({ length: source.height }, () =>
+          Array(source.width).fill(null) as OverlayType[],
+        ),
+        meta: {},
+      }
+    }
+
+    set({
+      map: {
+        ...map,
+        floors: [...map.floors, newFloor],
         updatedAt: new Date().toISOString(),
       },
       activeFloor: newIndex,

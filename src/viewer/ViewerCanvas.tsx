@@ -21,11 +21,17 @@ export default function ViewerCanvas({ map, activeFloor, pathIds, animHead = 0, 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    let lastW = -1, lastH = -1
     const resize = () => {
       const parent = canvas.parentElement
-      if (parent) {
-        canvas.width = parent.clientWidth
-        canvas.height = parent.clientHeight
+      if (!parent) return
+      const pw = parent.clientWidth
+      const ph = parent.clientHeight
+      if (pw !== lastW || ph !== lastH) {
+        canvas.width = pw
+        canvas.height = ph
+        lastW = pw
+        lastH = ph
       }
     }
     resize()
@@ -33,7 +39,6 @@ export default function ViewerCanvas({ map, activeFloor, pathIds, animHead = 0, 
 
     let raf = 0
     const loop = () => {
-      resize()
       const state: RenderState = {
         map,
         activeFloor,

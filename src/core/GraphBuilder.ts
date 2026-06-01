@@ -32,9 +32,8 @@ function isTraversable(base: TileType | undefined, overlay: OverlayType, noOutsi
   if (!base) return false
   if (base === 'stairs' || base === 'elevator') return true
   if (base === 'floor') return true
-  if (base === 'dirt_path') return true
+  if (base === 'outside' || base === 'dirt_path') return !noOutside
   if (base === 'wall' && (overlay === 'door' || overlay === 'exit_door')) return true
-  if (noOutside && base === 'outside') return false
   return false
 }
 
