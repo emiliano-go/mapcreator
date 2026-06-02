@@ -1,0 +1,11 @@
+services:
+  mapcreator:
+    build: .
+    container_name: mapcreator
+    ports:
+      - "8080:80"
+    volumes:
+      - ./exports:/exports
+    environment:
+      - EXPORT_DIR=/exports
+    restart: unless-stopped
