@@ -6,6 +6,7 @@ import type { NavDestination } from '../core/roomRegions'
 const DEST_EMOJI: Record<NavDestination['type'], string> = {
   room: '\u{1F3E0}',
   exit: '\u{1F6A8}',
+  door: '\u{1F6AA}',
   stairs: '\u{1F7E5}',
   elevator: '\u{1F7EA}',
 }
@@ -53,15 +54,15 @@ export default function SimulatePanel() {
   }, [])
 
   return (
-    <div className="w-72 bg-gray-800 border-l border-gray-700 p-3 text-sm overflow-y-auto">
-      <h3 className="text-gray-200 font-semibold mb-3">Simulation</h3>
+    <div className="w-72 bg-surface border-l border-border p-3 text-sm overflow-y-auto flex flex-col gap-3">
+      <h3 className="text-text-primary font-semibold text-base tracking-tight">Simulation</h3>
 
-      <div className="mb-4">
-        <label className="text-xs text-gray-400 block mb-1">From</label>
+      <div>
+        <label className="text-[10px] text-text-tertiary uppercase tracking-wider font-medium block mb-1">From</label>
         <select
           value={simulationRoomA ?? ''}
           onChange={(e) => setDest('A', e.target.value || null)}
-          className="w-full bg-gray-700 text-gray-200 px-1 py-0.5 rounded text-xs border border-gray-600 outline-none"
+          className="w-full bg-deep-700 text-text-primary px-2 py-1.5 rounded-lg text-sm border border-border outline-none transition-all duration-150 focus:border-accent cursor-pointer"
         >
           <option value="">-- Select destination --</option>
           {allDests.map((d) => (
@@ -72,12 +73,12 @@ export default function SimulatePanel() {
         </select>
       </div>
 
-      <div className="mb-4">
-        <label className="text-xs text-gray-400 block mb-1">To</label>
+      <div>
+        <label className="text-[10px] text-text-tertiary uppercase tracking-wider font-medium block mb-1">To</label>
         <select
           value={simulationRoomB ?? ''}
           onChange={(e) => setDest('B', e.target.value || null)}
-          className="w-full bg-gray-700 text-gray-200 px-1 py-0.5 rounded text-xs border border-gray-600 outline-none"
+          className="w-full bg-deep-700 text-text-primary px-2 py-1.5 rounded-lg text-sm border border-border outline-none transition-all duration-150 focus:border-accent cursor-pointer"
         >
           <option value="">-- Select destination --</option>
           {allDests.map((d) => (
@@ -88,83 +89,88 @@ export default function SimulatePanel() {
         </select>
       </div>
 
-      <div className="mb-4">
-        <h4 className="text-xs text-gray-400 mb-1">Options</h4>
-        <label className="flex items-center gap-2 text-gray-300 mb-1">
-          <input
-            type="checkbox"
-            checked={simulationOptions.accessibleOnly}
-            onChange={(e) => setSimulationOption('accessibleOnly', e.target.checked)}
-          />
-          Accessible only
-        </label>
-        <label className="flex items-center gap-2 text-gray-300 mb-1">
-          <input
-            type="checkbox"
-            checked={simulationOptions.preferElevator}
-            onChange={(e) => setSimulationOption('preferElevator', e.target.checked)}
-          />
-          Prefer elevator
-        </label>
-        <label className="flex items-center gap-2 text-gray-300 mb-1">
-          <input
-            type="checkbox"
-            checked={simulationOptions.noOutside}
-            onChange={(e) => setSimulationOption('noOutside', e.target.checked)}
-          />
-          No outside
-        </label>
-        <div className="flex items-center gap-2 text-gray-300">
-          <span className="text-xs">Max floor changes:</span>
-          <input
-            type="number"
-            min={1}
-            max={50}
-            value={simulationOptions.maxFloorChanges}
-            onChange={(e) => setSimulationOption('maxFloorChanges', Number(e.target.value))}
-            className="w-14 bg-gray-700 text-gray-200 px-1 py-0.5 rounded text-xs border border-gray-600 outline-none"
-          />
-        </div>
-        <div className="flex items-center gap-2 text-gray-300 mt-2">
-          <span className="text-xs">Speed (cells/s):</span>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={simulationSpeed}
-            onChange={(e) => setSimulationSpeed(Math.max(1, Number(e.target.value)))}
-            className="w-14 bg-gray-700 text-gray-200 px-1 py-0.5 rounded text-xs border border-gray-600 outline-none"
-          />
+      <div>
+        <h4 className="text-[10px] text-text-tertiary uppercase tracking-wider font-medium mb-2">Options</h4>
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-2 text-text-secondary text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={simulationOptions.accessibleOnly}
+              onChange={(e) => setSimulationOption('accessibleOnly', e.target.checked)}
+              className="rounded accent-accent"
+            />
+            Accessible only
+          </label>
+          <label className="flex items-center gap-2 text-text-secondary text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={simulationOptions.preferElevator}
+              onChange={(e) => setSimulationOption('preferElevator', e.target.checked)}
+              className="rounded accent-accent"
+            />
+            Prefer elevator
+          </label>
+          <label className="flex items-center gap-2 text-text-secondary text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={simulationOptions.noOutside}
+              onChange={(e) => setSimulationOption('noOutside', e.target.checked)}
+              className="rounded accent-accent"
+            />
+            No outside
+          </label>
+          <div className="flex items-center gap-2 text-text-secondary pt-1">
+            <span className="text-xs text-text-tertiary">Max floor changes:</span>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={simulationOptions.maxFloorChanges}
+              onChange={(e) => setSimulationOption('maxFloorChanges', Number(e.target.value))}
+              className="w-14 bg-deep-700 text-text-primary px-1.5 py-1 rounded-lg text-xs border border-border outline-none focus:border-accent transition-all duration-150"
+            />
+          </div>
+          <div className="flex items-center gap-2 text-text-secondary">
+            <span className="text-xs text-text-tertiary">Speed (cells/s):</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={simulationSpeed}
+              onChange={(e) => setSimulationSpeed(Math.max(1, Number(e.target.value)))}
+              className="w-14 bg-deep-700 text-text-primary px-1.5 py-1 rounded-lg text-xs border border-border outline-none focus:border-accent transition-all duration-150"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2">
         <button
           onClick={runSimulation}
           disabled={!simulationRoomA && !simulationRoomB}
-          className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded text-sm transition-colors"
+          className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-deep-600 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer font-medium shadow-sm shadow-accent/20 disabled:shadow-none"
         >
           {simulationStatus === 'running' ? 'Running...' : 'Find Path'}
         </button>
         <button
           onClick={clearSimulation}
-          className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1.5 rounded text-sm transition-colors"
+          className="bg-deep-700 hover:bg-deep-600 text-text-secondary px-3 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer"
         >
           Clear
         </button>
       </div>
 
       {simulationPath !== null && (
-        <div className="bg-gray-900 rounded p-2 text-xs">
-          <div className="text-green-400 font-semibold mb-1">Path found!</div>
-          <div className="text-gray-400">Steps: {simulationPath.length}</div>
+        <div className="bg-success/10 rounded-xl p-3 border border-success/20">
+          <div className="text-success font-semibold text-sm mb-1">✓ Path found!</div>
+          <div className="text-text-secondary text-xs font-mono">Steps: {simulationPath.length}</div>
         </div>
       )}
 
       {simulationStatus === 'complete' && simulationPath === null && (
-        <div className="bg-gray-900 rounded p-2 text-xs">
-          <div className="text-red-400 font-semibold">No path found</div>
-          <div className="text-gray-400">Points may be disconnected</div>
+        <div className="bg-danger/10 rounded-xl p-3 border border-danger/20">
+          <div className="text-danger font-semibold text-sm mb-1">✗ No path found</div>
+          <div className="text-text-secondary text-xs">Points may be disconnected</div>
         </div>
       )}
     </div>
