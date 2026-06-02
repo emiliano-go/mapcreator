@@ -1,6 +1,7 @@
 import type { BuildingMap, TileType, OverlayType, MapFloor, RoomRegion } from '../../core/types'
-import { tileStyles, overlayStyles, editorStyles } from '../../theme/tileStyles'
-import { findRoomRegions } from '../../core/roomRegions'
+import { getTileStyles, overlayStyles, editorStyles } from '../../theme/tileStyles'
+import { findRoomRegions, findOverlayGroups } from '../../core/roomRegions'
+import type { OverlayGroup } from '../../core/roomRegions'
 
 export interface GhostGroupInfo {
   type: 'stairs' | 'elevator'
@@ -26,11 +27,16 @@ export interface RenderState {
   animHead: number
   showGrid: boolean
   straightGhost: { startRow: number; startCol: number; endRow: number; endCol: number } | null
+  fillGhost: Array<{ row: number; col: number }> | null
+  fillGhostFill: string
+  isDark: boolean
   destALabel?: string
   destBLabel?: string
   cachedRegions?: RoomRegion[]
   cachedGhostGroups?: GhostGroupInfo[]
   cachedStairBorders?: GhostGroupInfo[]
+  cachedExitGroups?: OverlayGroup[]
+  cachedDoorGroups?: OverlayGroup[]
 }
 
 const STROKE_THRESHOLD = 4
@@ -167,9 +173,13 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
   const drawStroke = tileSize >= STROKE_THRESHOLD
   const drawDetail = tileSize >= DETAIL_THRESHOLD
 
+  const tileStyles = getTileStyles(state.isDark)
+
   const regions = state.cachedRegions ?? (drawStroke ? findRoomRegions(floor) : [])
   const ghostGroups = state.cachedGhostGroups ?? (drawStroke ? getGhostGroups(map, activeFloor, floor) : [])
   const stairBorders = state.cachedStairBorders ?? (drawStroke ? findStairElevatorGroups(floor) : [])
+  const exitGroups = state.cachedExitGroups ?? (drawStroke ? findOverlayGroups(floor, 'exit_door') : [])
+  const doorGroups = state.cachedDoorGroups ?? (drawStroke ? findOverlayGroups(floor, 'door') : [])
 
   for (let row = vb.rowStart; row < vb.rowEnd; row++) {
     for (let col = vb.colStart; col < vb.colEnd; col++) {
@@ -239,6 +249,51 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
     }
   }
 
+  if (drawDetail && regions.length > 0) {
+    for (const region of regions) {
+      if (!region.label) continue
+      const minRow = Math.min(...region.tiles.map((t) => t.row))
+      const maxRow = Math.max(...region.tiles.map((t) => t.row))
+      const minCol = Math.min(...region.tiles.map((t) => t.col))
+      const maxCol = Math.max(...region.tiles.map((t) => t.col))
+      const centerCol = (minCol + maxCol) / 2
+      const centerRow = minRow + (maxRow - minRow) * 0.25
+
+      if (centerRow < vb.rowStart || centerRow >= vb.rowEnd || centerCol < vb.colStart || centerCol >= vb.colEnd) continue
+
+      const cx = centerCol * tileSize + tileSize / 2
+      const cy = centerRow * tileSize
+
+      const fontSize = Math.max(9, Math.min(14, tileSize * 0.45))
+      ctx.font = `600 ${fontSize}px ${getComputedStyle(document.body).fontFamily || 'Inter, system-ui, sans-serif'}`
+      const textW = ctx.measureText(region.label).width
+      const padX = 8
+      const padY = 4
+      const bubbleW = textW + padX * 2
+      const bubbleH = fontSize + padY * 2
+
+      const bx = cx - bubbleW / 2
+      const by = cy - bubbleH - 2
+
+      ctx.fillStyle = 'rgba(15, 15, 25, 0.88)'
+      ctx.beginPath()
+      const r = 6
+      ctx.roundRect(bx, by, bubbleW, bubbleH, r)
+      ctx.fill()
+
+      ctx.strokeStyle = 'rgba(255,200,100,0.4)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.roundRect(bx, by, bubbleW, bubbleH, r)
+      ctx.stroke()
+
+      ctx.fillStyle = '#fff'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(region.label, cx, by + bubbleH / 2)
+    }
+  }
+
   if (stairBorders.length > 0) {
     ctx.setLineDash([])
     for (const group of stairBorders) {
@@ -248,6 +303,44 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
         if (inBounds(r, c, vb)) {
           ctx.strokeRect(c * tileSize, r * tileSize, tileSize, tileSize)
         }
+      }
+    }
+  }
+
+  if (exitGroups.length > 0) {
+    ctx.strokeStyle = 'rgba(255, 80, 80, 0.5)'
+    ctx.lineWidth = 1
+    ctx.setLineDash([])
+    for (const group of exitGroups) {
+      for (const { row: r, col: c } of group.tiles) {
+        if (inBounds(r, c, vb)) {
+          ctx.strokeRect(c * tileSize, r * tileSize, tileSize, tileSize)
+        }
+      }
+    }
+  }
+
+  if (doorGroups.length > 0) {
+    ctx.strokeStyle = 'rgba(64, 200, 43, 0.5)'
+    ctx.lineWidth = 1
+    ctx.setLineDash([])
+    for (const group of doorGroups) {
+      for (const { row: r, col: c } of group.tiles) {
+        if (inBounds(r, c, vb)) {
+          ctx.strokeRect(c * tileSize, r * tileSize, tileSize, tileSize)
+        }
+      }
+    }
+  }
+
+  if (state.fillGhost && state.fillGhost.length > 0 && drawStroke) {
+    ctx.fillStyle = state.fillGhostFill
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'
+    ctx.lineWidth = 0.5
+    for (const { row: r, col: c } of state.fillGhost) {
+      if (inBounds(r, c, vb)) {
+        ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize)
+        ctx.strokeRect(c * tileSize, r * tileSize, tileSize, tileSize)
       }
     }
   }
