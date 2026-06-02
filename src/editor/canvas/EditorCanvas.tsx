@@ -150,18 +150,35 @@ export default function EditorCanvas() {
       const path = s.simulationPath
 
       if (s.simulationStatus === 'complete' && path) {
-        const delta = (now - lastTime) / 1000
-        lastTime = now
-        head = Math.min(head + s.simulationSpeed * delta, path.length - 1)
-        const headIdx = Math.floor(head)
-        animRef.current = headIdx
+        if (!s.simulationPaused) {
+          const delta = (now - lastTime) / 1000
+          lastTime = now
+          head = Math.min(head + s.simulationSpeed * delta, path.length - 1)
+          const headIdx = Math.floor(head)
+          animRef.current = headIdx
 
-        const parts = path[headIdx]?.split(':')
-        if (parts) {
-          const curFloor = Number(parts[0])
-          if (curFloor !== s.activeFloor) {
-            s.setActiveFloor(curFloor)
+          const parts = path[headIdx]?.split(':')
+          if (parts) {
+            const curFloor = Number(parts[0])
+            if (curFloor !== s.activeFloor) {
+              s.setActiveFloor(curFloor)
+            }
           }
+
+          const nextIdx = headIdx + 1
+          if (nextIdx < path.length) {
+            const nextParts = path[nextIdx]?.split(':')
+            if (nextParts) {
+              const nextFloor = Number(nextParts[0])
+              if (nextFloor !== s.activeFloor) {
+                head = headIdx
+                animRef.current = headIdx
+                s.setSimulationPaused(true, nextFloor)
+              }
+            }
+          }
+        } else {
+          lastTime = now
         }
       } else {
         head = 0
