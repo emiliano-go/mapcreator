@@ -39,7 +39,8 @@ function isTraversable(base: TileType | undefined, overlay: OverlayType, noOutsi
 
 function getWeight(base: TileType, overlay: OverlayType, meta: TileMeta): number {
   const doorSurcharge = (overlay === 'door' || overlay === 'exit_door') ? (meta.weight ?? 0.5) : 0
-  return 1 + doorSurcharge
+  const baseCost = base === 'outside' ? 3 : 1
+  return baseCost + doorSurcharge
 }
 
 function addCrossFloorEdge(
