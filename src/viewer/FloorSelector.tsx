@@ -16,10 +16,10 @@ export default function FloorSelector({ floors, activeFloor, onChange }: FloorSe
         <button
           key={floor.floorIndex}
           onClick={() => onChange(floor.floorIndex)}
-          className={`px-3 py-1 text-xs rounded transition-colors ${
+          className={`px-3 py-1 text-xs rounded-lg transition-all duration-150 cursor-pointer ${
             floor.floorIndex === activeFloor
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+              ? 'bg-accent text-white shadow-sm shadow-accent/20'
+              : 'text-text-tertiary hover:text-text-primary hover:bg-surface-hover'
           }`}
         >
           {floor.label}
