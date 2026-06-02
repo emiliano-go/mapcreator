@@ -1,5 +1,117 @@
 @import 'tailwindcss';
 
+@theme {
+  --color-deep-900: var(--clr-deep-900);
+  --color-deep-800: var(--clr-deep-800);
+  --color-deep-700: var(--clr-deep-700);
+  --color-deep-600: var(--clr-deep-600);
+  --color-deep-500: var(--clr-deep-500);
+  --color-surface: var(--clr-surface);
+  --color-surface-hover: var(--clr-surface-hover);
+  --color-surface-elevated: var(--clr-surface-elevated);
+  --color-border: var(--clr-border);
+  --color-border-hover: var(--clr-border-hover);
+  --color-border-light: var(--clr-border-light);
+  --color-text-primary: var(--clr-text-primary);
+  --color-text-secondary: var(--clr-text-secondary);
+  --color-text-tertiary: var(--clr-text-tertiary);
+  --color-accent: var(--clr-accent);
+  --color-accent-hover: var(--clr-accent-hover);
+  --color-accent-subtle: var(--clr-accent-subtle);
+  --color-success: var(--clr-success);
+  --color-warning: var(--clr-warning);
+  --color-danger: var(--clr-danger);
+  --color-gold: var(--clr-gold);
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+:root {
+  --clr-deep-900: #F8F9FA;
+  --clr-deep-800: #F1F3F5;
+  --clr-deep-700: #E8ECF0;
+  --clr-deep-600: #DEE2E8;
+  --clr-deep-500: #CED4DA;
+  --clr-surface: #FFFFFF;
+  --clr-surface-hover: #F1F3F5;
+  --clr-surface-elevated: #FFFFFF;
+  --clr-border: #E2E6ED;
+  --clr-border-hover: #CED4DA;
+  --clr-border-light: #B0B8C4;
+  --clr-text-primary: #0F172A;
+  --clr-text-secondary: #475569;
+  --clr-text-tertiary: #94A3B8;
+  --clr-accent: #6366F1;
+  --clr-accent-hover: #818CF8;
+  --clr-accent-subtle: rgba(99, 102, 241, 0.08);
+  --clr-success: #16A34A;
+  --clr-warning: #D97706;
+  --clr-danger: #DC2626;
+  --clr-gold: #B8860B;
+}
+
+.dark {
+  --clr-deep-900: #0B0D11;
+  --clr-deep-800: #111318;
+  --clr-deep-700: #161922;
+  --clr-deep-600: #1B1F2B;
+  --clr-deep-500: #222738;
+  --clr-surface: #13161C;
+  --clr-surface-hover: #1A1F2B;
+  --clr-surface-elevated: #1B1F2D;
+  --clr-border: #1E2330;
+  --clr-border-hover: #2A3040;
+  --clr-border-light: #2E3548;
+  --clr-text-primary: #EDEEF0;
+  --clr-text-secondary: #9095A3;
+  --clr-text-tertiary: #636878;
+  --clr-accent: #6366F1;
+  --clr-accent-hover: #818CF8;
+  --clr-accent-subtle: rgba(99, 102, 241, 0.12);
+  --clr-success: #22C55E;
+  --clr-warning: #F59E0B;
+  --clr-danger: #EF4444;
+  --clr-gold: #D4A853;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'salt';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code, pre, .font-mono, kbd, [class*="mono"] {
+    font-family: var(--font-mono);
+  }
+}
+
 html, body, #root {
   height: 100%;
+}
+
+html {
+  background: var(--clr-deep-900);
+  color: var(--clr-text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--clr-border) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--clr-accent);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--clr-accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
