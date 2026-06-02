@@ -81,7 +81,22 @@ export function setupInteraction(
       const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
       if (!floor) return
       if (pos.row < 0 || pos.row >= floor.height || pos.col < 0 || pos.col >= floor.width) return
-      store.erase(pos.row, pos.col)
+
+      if (store.activeTab === 'overlay' && floor.overlay[pos.row]?.[pos.col]) {
+        store.pushHistory()
+        const newFloors = store.map.floors.map((f) => {
+          if (f.floorIndex !== store.activeFloor) return f
+          const newOverlay = f.overlay.map((r) => [...r])
+          newOverlay[pos.row][pos.col] = null
+          return cleanupRoomMeta({ ...f, overlay: newOverlay })
+        })
+        useStore.setState({
+          map: { ...store.map, floors: newFloors, updatedAt: new Date().toISOString() },
+        })
+        store.runValidation()
+      } else {
+        store.erase(pos.row, pos.col)
+      }
       state.isDrawing = true
       state.isRightErase = true
       return
@@ -330,7 +345,21 @@ export function setupInteraction(
       if (pos.row >= floor.height || pos.col >= floor.width) return
 
       if (state.isRightErase || store.activeTool === 'eraser') {
-        store.erase(pos.row, pos.col)
+        if (state.isRightErase && store.activeTab === 'overlay' && floor.overlay[pos.row]?.[pos.col]) {
+          store.pushHistory()
+          const newFloors = store.map.floors.map((f) => {
+            if (f.floorIndex !== store.activeFloor) return f
+            const newOverlay = f.overlay.map((r) => [...r])
+            newOverlay[pos.row][pos.col] = null
+            return cleanupRoomMeta({ ...f, overlay: newOverlay })
+          })
+          useStore.setState({
+            map: { ...store.map, floors: newFloors, updatedAt: new Date().toISOString() },
+          })
+          store.runValidation()
+        } else {
+          store.erase(pos.row, pos.col)
+        }
       } else if (store.activeTab === 'base') {
         store.paint(pos.row, pos.col)
       } else {
