@@ -3,7 +3,7 @@ import { type BuildingMap, type MapFloor, type TileType, type OverlayType, type 
 import { validate, validateFloorConnectivity } from '../core/validator'
 import { buildGraph } from '../core/GraphBuilder'
 import { findPath } from '../core/Pathfinder'
-import { cleanupRoomMeta, cleanupStairsElevatorMeta, resolveDestination } from '../core/roomRegions'
+import { cleanupRoomMeta, cleanupStairsElevatorMeta, resolveDestination, getAllRoomRegions } from '../core/roomRegions'
 
 export type EditorTool =
   | TileType
@@ -73,6 +73,7 @@ export interface EditorStore {
   historyIndex: number
 
   validationErrors: Array<{ floorIndex: number; label: string; message: string }>
+  isDark: boolean
 
   setActiveFloor: (floorIndex: number) => void
   setActiveTool: (tool: EditorTool) => void
@@ -106,6 +107,18 @@ export interface EditorStore {
   renameBuilding: (buildingId: string, name: string) => void
 
   exportMap: () => BuildingMap
+  exportFull: () => {
+    map: BuildingMap
+    simulation: {
+      roomA: string | null
+      roomB: string | null
+      options: EditorStore['simulationOptions']
+      path: Array<{ id: string; floorIndex: number; row: number; col: number; base: TileType; overlay: OverlayType }> | null
+    }
+    tileClasses: Record<string, string>
+    overlayClasses: Record<string, string>
+    regions: Record<string, { label: string | null; tiles: Array<{ row: number; col: number }>; anchor: { row: number; col: number }; floorIndex: number; doorCount: number; type: 'room' | 'hallway' }>
+  }
   importMap: (map: BuildingMap) => void
   canUndo: () => boolean
   canRedo: () => boolean
@@ -113,6 +126,7 @@ export interface EditorStore {
   redo: () => void
   pushHistory: () => void
   runValidation: () => void
+  toggleTheme: () => void
 }
 
 function getInitialMap(): BuildingMap {
@@ -156,6 +170,14 @@ export const useStore = create<EditorStore>((set, get) => ({
   historyIndex: -1,
 
   validationErrors: [],
+  isDark: document.documentElement.classList.contains('dark'),
+
+  toggleTheme: () => {
+    const next = !get().isDark
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('mapcreator-theme', next ? 'dark' : 'light')
+    set({ isDark: next })
+  },
 
   setActiveFloor: (floorIndex) => {
     set({ activeFloor: floorIndex, selection: null })
@@ -710,6 +732,61 @@ export const useStore = create<EditorStore>((set, get) => ({
 
   exportMap: () => {
     return get().map
+  },
+
+  exportFull: () => {
+    const s = get()
+    const roomRegions = getAllRoomRegions(s.map)
+    const regions: Record<string, { label: string | null; tiles: Array<{ row: number; col: number }>; anchor: { row: number; col: number }; floorIndex: number; doorCount: number; type: 'room' | 'hallway' }> = {}
+    for (const r of roomRegions) {
+      regions[r.id] = {
+        label: r.label,
+        tiles: r.tiles,
+        anchor: r.anchor,
+        floorIndex: r.floorIndex,
+        doorCount: r.doorCount,
+        type: r.type,
+      }
+    }
+
+    const path: Array<{ id: string; floorIndex: number; row: number; col: number; base: TileType; overlay: OverlayType }> | null = s.simulationPath
+      ? s.simulationPath.map((id) => {
+          const parts = id.split(':')
+          const fi = Number(parts[0]), r = Number(parts[1]), c = Number(parts[2])
+          const floor = s.map.floors.find((f) => f.floorIndex === fi)
+          return {
+            id,
+            floorIndex: fi, row: r, col: c,
+            base: (floor?.base[r]?.[c] ?? 'void') as TileType,
+            overlay: (floor?.overlay[r]?.[c] ?? null) as OverlayType,
+          }
+        })
+      : null
+
+    return {
+      map: s.map,
+      simulation: {
+        roomA: s.simulationRoomA,
+        roomB: s.simulationRoomB,
+        options: s.simulationOptions,
+        path,
+      },
+      tileClasses: {
+        wall: 'tile-wall',
+        floor: 'tile-floor',
+        stairs: 'tile-stairs',
+        elevator: 'tile-elevator',
+        outside: 'tile-outside',
+        dirt_path: 'tile-dirt-path',
+        void: 'tile-void',
+      },
+      overlayClasses: {
+        door: 'tile-door',
+        exit_door: 'tile-exit-door',
+        room: 'tile-room',
+      },
+      regions,
+    }
   },
 
   importMap: (map) => {
