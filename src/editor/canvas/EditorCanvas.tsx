@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { renderFrame, type RenderState, type GhostGroupInfo } from './renderer'
-import { getAllDestinations, findRoomRegions } from '../../core/roomRegions'
-import type { RoomRegion, BuildingMap, MapFloor } from '../../core/types'
-import { setupInteraction, getStraightGhost } from './interaction'
+import { getAllDestinations, findRoomRegions, findOverlayGroups } from '../../core/roomRegions'
+import type { RoomRegion, OverlayGroup, BuildingMap, MapFloor } from '../../core/types'
+import { setupInteraction, getStraightGhost, getFillGhost } from './interaction'
+import { getTileStyles } from '../../theme/tileStyles'
 
 function findStairElevatorGroups(floor: MapFloor): GhostGroupInfo[] {
   const visited = new Set<string>()
@@ -105,10 +106,8 @@ export default function EditorCanvas() {
     let lastGroupsMap: BuildingMap | null = null
     let cachedDests: ReturnType<typeof getAllDestinations> = []
     let lastDestsMap: BuildingMap | null = null
-
-    function getStairElevatorGroups(floor: MapFloor) {
-      return cachedGroupsByFloor?.get(floor.floorIndex) ?? findStairElevatorGroups(floor)
-    }
+    let cachedExitGroups: { floorIdx: number; groups: OverlayGroup[] } | null = null
+    let cachedDoorGroups: { floorIdx: number; groups: OverlayGroup[] } | null = null
 
     function computeGhostGroups(
       s: ReturnType<typeof useStore.getState>,
@@ -162,26 +161,6 @@ export default function EditorCanvas() {
           const curFloor = Number(parts[0])
           if (curFloor !== s.activeFloor) {
             s.setActiveFloor(curFloor)
-          } else {
-            const floor = s.map.floors.find((f) => f.floorIndex === curFloor)
-            if (floor) {
-              const r = Number(parts[1]), c = Number(parts[2])
-              const bt = floor.base[r]?.[c]
-              if (bt === 'stairs' || bt === 'elevator') {
-                const meta = floor.meta[`${r},${c}`]
-                let targetFloor: number | undefined
-                if (bt === 'stairs') {
-                  if (meta?.toFloorInferior != null) targetFloor = meta.toFloorInferior
-                  else if (meta?.toFloorSuperior != null) targetFloor = meta.toFloorSuperior
-                } else if (bt === 'elevator') {
-                  const conns = meta?.connectedFloors
-                  if (conns && conns.length > 0) targetFloor = conns.find((f) => f !== curFloor)
-                }
-                if (targetFloor != null && targetFloor !== curFloor) {
-                  s.setActiveFloor(targetFloor)
-                }
-              }
-            }
           }
         }
       } else {
@@ -204,9 +183,23 @@ export default function EditorCanvas() {
 
       let ghostGroups: GhostGroupInfo[] | undefined
       let stairBorders: GhostGroupInfo[] | undefined
+      let exitGroups: OverlayGroup[] | undefined
+      let doorGroups: OverlayGroup[] | undefined
       if (curFloor) {
         ghostGroups = computeGhostGroups(s, curFloor)
         stairBorders = cachedGroupsByFloor?.get(s.activeFloor) ?? findStairElevatorGroups(curFloor)
+        if (cachedExitGroups?.floorIdx === s.activeFloor) {
+          exitGroups = cachedExitGroups.groups
+        } else {
+          exitGroups = findOverlayGroups(curFloor, 'exit_door')
+          cachedExitGroups = { floorIdx: s.activeFloor, groups: exitGroups }
+        }
+        if (cachedDoorGroups?.floorIdx === s.activeFloor) {
+          doorGroups = cachedDoorGroups.groups
+        } else {
+          doorGroups = findOverlayGroups(curFloor, 'door')
+          cachedDoorGroups = { floorIdx: s.activeFloor, groups: doorGroups }
+        }
       }
 
       let allDests: ReturnType<typeof getAllDestinations> = []
@@ -230,6 +223,7 @@ export default function EditorCanvas() {
         map: s.map,
         activeFloor: s.activeFloor,
         mode: s.mode,
+        isDark: s.isDark,
         tileSize: tileSizeRef.current,
         offsetX: offsetRef.current.offsetX,
         offsetY: offsetRef.current.offsetY,
@@ -244,11 +238,23 @@ export default function EditorCanvas() {
         animHead: animRef.current,
         showGrid: true,
         straightGhost: getStraightGhost(),
+        fillGhost: getFillGhost(),
+        fillGhostFill: (() => {
+          const lt = s.lastTileTool
+          if (lt && lt !== 'fill' && lt !== 'eraser' && lt !== 'select' && lt !== 'eyedrop' && lt !== 'fillRoom') {
+            const ts = getTileStyles(s.isDark)
+            const fill = (ts as any)[lt]?.fill
+            if (fill) return fill
+          }
+          return 'rgba(255,255,255,0.3)'
+        })(),
         destALabel: findLabel(s.simulationRoomA),
         destBLabel: findLabel(s.simulationRoomB),
         cachedRegions: regions,
         cachedGhostGroups: ghostGroups,
         cachedStairBorders: stairBorders,
+        cachedExitGroups: exitGroups,
+        cachedDoorGroups: doorGroups,
       }
 
       renderFrame(ctx, state)
