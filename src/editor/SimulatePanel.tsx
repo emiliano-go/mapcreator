@@ -19,10 +19,13 @@ export default function SimulatePanel() {
   const simulationOptions = useStore((s) => s.simulationOptions)
   const simulationSpeed = useStore((s) => s.simulationSpeed)
   const simulationPath = useStore((s) => s.simulationPath)
+  const simulationPaused = useStore((s) => s.simulationPaused)
+  const pendingFloor = useStore((s) => s.pendingFloor)
   const setSimulationOption = useStore((s) => s.setSimulationOption)
   const setSimulationSpeed = useStore((s) => s.setSimulationSpeed)
   const clearSimulation = useStore((s) => s.clearSimulation)
   const runSimulation = useStore((s) => s.runSimulation)
+  const resumeSimulation = useStore((s) => s.resumeSimulation)
 
   const allDests = useMemo(() => getAllDestinations(map), [map])
 
@@ -164,6 +167,21 @@ export default function SimulatePanel() {
         <div className="bg-success/10 rounded-xl p-3 border border-success/20">
           <div className="text-success font-semibold text-sm mb-1">✓ Path found!</div>
           <div className="text-text-secondary text-xs font-mono">Steps: {simulationPath.length}</div>
+        </div>
+      )}
+
+      {simulationPaused && pendingFloor != null && (
+        <div className="bg-warning/15 rounded-xl p-3 border border-warning/30 text-center">
+          <div className="text-warning font-semibold text-sm mb-1">Paused — Floor {pendingFloor + 1}</div>
+          <div className="text-text-secondary text-xs mb-2">
+            Path continues on a different floor. Ready to proceed?
+          </div>
+          <button
+            onClick={resumeSimulation}
+            className="bg-accent hover:bg-accent-hover text-white px-4 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer font-medium shadow-sm shadow-accent/20"
+          >
+            Resume ▶
+          </button>
         </div>
       )}
 
