@@ -68,6 +68,8 @@ export interface EditorStore {
   simulationOptions: { accessibleOnly: boolean; preferElevator: boolean; maxFloorChanges: number; noOutside: boolean }
   simulationPath: string[] | null
   simulationSpeed: number
+  simulationPaused: boolean
+  pendingFloor: number | null
 
   history: HistoryEntry[]
   historyIndex: number
@@ -92,6 +94,8 @@ export interface EditorStore {
   setSimulationRoomB: (roomId: string | null) => void
   setSimulationOption: (key: string, value: boolean | number) => void
   setSimulationSpeed: (speed: number) => void
+  setSimulationPaused: (paused: boolean, pendingFloor?: number | null) => void
+  resumeSimulation: () => void
   runSimulation: () => void
   clearSimulation: () => void
 
@@ -114,6 +118,8 @@ export interface EditorStore {
       roomB: string | null
       options: EditorStore['simulationOptions']
       path: Array<{ id: string; floorIndex: number; row: number; col: number; base: TileType; overlay: OverlayType }> | null
+      paused: boolean
+      pendingFloor: number | null
     }
     tileClasses: Record<string, string>
     overlayClasses: Record<string, string>
@@ -165,6 +171,8 @@ export const useStore = create<EditorStore>((set, get) => ({
   simulationOptions: { accessibleOnly: false, preferElevator: false, maxFloorChanges: 10, noOutside: false },
   simulationPath: null,
   simulationSpeed: 3,
+  simulationPaused: false,
+  pendingFloor: null,
 
   history: [],
   historyIndex: -1,
@@ -528,8 +536,20 @@ export const useStore = create<EditorStore>((set, get) => ({
     }
   },
 
+  setSimulationPaused: (paused, pendingFloor) => {
+    set({ simulationPaused: paused, pendingFloor: pendingFloor ?? null })
+  },
+
+  resumeSimulation: () => {
+    const { pendingFloor } = get()
+    if (pendingFloor != null) {
+      get().setActiveFloor(pendingFloor)
+    }
+    set({ simulationPaused: false, pendingFloor: null })
+  },
+
   clearSimulation: () => {
-    set({ simulationPath: null, simulationStatus: 'idle', simulationRoomA: null, simulationRoomB: null })
+    set({ simulationPath: null, simulationStatus: 'idle', simulationRoomA: null, simulationRoomB: null, simulationPaused: false, pendingFloor: null })
   },
 
   addFloor: (label) => {
@@ -770,6 +790,8 @@ export const useStore = create<EditorStore>((set, get) => ({
         roomB: s.simulationRoomB,
         options: s.simulationOptions,
         path,
+        paused: s.simulationPaused,
+        pendingFloor: s.pendingFloor,
       },
       tileClasses: {
         wall: 'tile-wall',
