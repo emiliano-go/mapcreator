@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.github
+.cache
+*.log
+.env
+.env.local
+maps/*.json
