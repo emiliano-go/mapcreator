@@ -1,16 +1,19 @@
-import { useStore, type EditorTool } from '../store'
+import { useStore } from '../store'
 import type { TileType, OverlayType } from '../../core/types'
 import { cleanupRoomMeta } from '../../core/roomRegions'
+import { matchKeybind } from '../../core/keybinds'
 
 interface InteractionState {
   isPanning: boolean
   lastPanX: number
   lastPanY: number
   isDrawing: boolean
+  isRightErase: boolean
   straightGhost: {
     startRow: number; startCol: number
     endRow: number; endCol: number
   } | null
+  fillGhost: Array<{ row: number; col: number }> | null
 }
 
 const state: InteractionState = {
@@ -18,11 +21,17 @@ const state: InteractionState = {
   lastPanX: 0,
   lastPanY: 0,
   isDrawing: false,
+  isRightErase: false,
   straightGhost: null,
+  fillGhost: null,
 }
 
 export function getStraightGhost() {
   return state.straightGhost
+}
+
+export function getFillGhost() {
+  return state.fillGhost
 }
 
 function getGridPos(
@@ -72,7 +81,9 @@ export function setupInteraction(
       const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
       if (!floor) return
       if (pos.row < 0 || pos.row >= floor.height || pos.col < 0 || pos.col >= floor.width) return
-      store.setSelection(pos)
+      store.erase(pos.row, pos.col)
+      state.isDrawing = true
+      state.isRightErase = true
       return
     }
 
@@ -185,7 +196,6 @@ export function setupInteraction(
 
       while (queue.length > 0) {
         const cur = queue.pop()!
-        if (f.overlay[cur.row]?.[cur.col] === 'room') continue
 
         for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
           const nr = cur.row + dr
@@ -193,10 +203,7 @@ export function setupInteraction(
           const key = `${nr},${nc}`
           if (visited.has(key)) continue
 
-          if (nr < 0 || nr >= f.height || nc < 0 || nc >= f.width) {
-            enclosed = false
-            continue
-          }
+          if (nr < 0 || nr >= f.height || nc < 0 || nc >= f.width) continue
 
           const nbt = f.base[nr]?.[nc]
           if (nbt === 'void' || nbt === 'outside') {
@@ -258,6 +265,44 @@ export function setupInteraction(
       return
     }
 
+    if (store.activeTool === 'fill') {
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      if (!pos || pos.row < 0 || pos.col < 0) { state.fillGhost = null; return }
+      const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
+      if (!floor || pos.row >= floor.height || pos.col >= floor.width) { state.fillGhost = null; return }
+      const posBase = floor.base[pos.row]?.[pos.col]
+      if (!posBase || store.lastTileTool === 'select' || store.lastTileTool === 'eraser' || store.lastTileTool === 'fill' || store.lastTileTool === 'eyedrop' || store.lastTileTool === 'fillRoom') {
+        state.fillGhost = null; return
+      }
+      const targetBase = posBase
+      const targetOverlay = floor.overlay[pos.row]?.[pos.col] ?? null
+      const visited = new Set<string>()
+      const queue = [{ row: pos.row, col: pos.col }]
+      visited.add(`${pos.row},${pos.col}`)
+      while (queue.length > 0) {
+        const cur = queue.pop()!
+        for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+          const nr = cur.row + dr
+          const nc = cur.col + dc
+          const key = `${nr},${nc}`
+          if (visited.has(key)) continue
+          if (nr < 0 || nr >= floor.height || nc < 0 || nc >= floor.width) continue
+          if (floor.base[nr]?.[nc] !== targetBase) continue
+          if (floor.overlay[nr]?.[nc] !== targetOverlay) continue
+          visited.add(key)
+          queue.push({ row: nr, col: nc })
+        }
+      }
+      const tiles: Array<{ row: number; col: number }> = []
+      for (const key of visited) {
+        const [r, c] = key.split(',').map(Number)
+        tiles.push({ row: r!, col: c! })
+      }
+      state.fillGhost = tiles
+      return
+    }
+    state.fillGhost = null
+
     if (state.straightGhost) {
       let pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
       if (!pos) return
@@ -272,8 +317,10 @@ export function setupInteraction(
     }
 
     if (state.isDrawing) {
-      if (e.buttons !== 1) {
+      const held = (e.buttons & 1) || (e.buttons & 2)
+      if (!held) {
         state.isDrawing = false
+        state.isRightErase = false
         return
       }
       const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
@@ -282,7 +329,7 @@ export function setupInteraction(
       if (!floor) return
       if (pos.row >= floor.height || pos.col >= floor.width) return
 
-      if (store.activeTool === 'eraser') {
+      if (state.isRightErase || store.activeTool === 'eraser') {
         store.erase(pos.row, pos.col)
       } else if (store.activeTab === 'base') {
         store.paint(pos.row, pos.col)
@@ -345,6 +392,7 @@ export function setupInteraction(
   function handleMouseUp() {
     state.isPanning = false
     state.isDrawing = false
+    state.isRightErase = false
 
     if (state.straightGhost) {
       const store = useStore.getState()
@@ -379,6 +427,25 @@ export function setupInteraction(
     setTileSize(newTileSize)
   }
 
+  function saveToFile(data: ReturnType<ReturnType<typeof useStore.getState>['exportFull']>) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${(data.map as any).name ?? 'map'}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+
+    fetch('/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: `${(data.map as any).name ?? 'map'}.json`,
+        data,
+      }),
+    }).catch(() => {})
+  }
+
   function handleKeyDown(e: KeyboardEvent) {
     const store = useStore.getState()
 
@@ -391,33 +458,33 @@ export function setupInteraction(
       return
     }
 
-    if (e.key === 'z' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault()
-      if (e.shiftKey) {
-        store.redo()
-      } else {
-        store.undo()
-      }
-      return
-    }
+    const id = matchKeybind(e)
+    if (!id) return
+    e.preventDefault()
 
-    const toolMap: Record<string, EditorTool> = {
-      '1': 'select',
-      '2': 'wall',
-      '3': 'floor',
-      '4': 'stairs',
-      '5': 'elevator',
-      '6': 'door',
-      '7': 'exit_door',
-      '8': 'room',
-      '9': 'eraser',
-      '0': 'outside',
-    }
-
-    const tool = toolMap[e.key]
-    if (tool && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault()
-      store.setActiveTool(tool)
+    switch (id) {
+      case 'tool-select': store.setActiveTool('select'); break
+      case 'tool-wall': store.setActiveTool('wall'); break
+      case 'tool-floor': store.setActiveTool('floor'); break
+      case 'tool-stairs': store.setActiveTool('stairs'); break
+      case 'tool-elevator': store.setActiveTool('elevator'); break
+      case 'tool-door': store.setActiveTool('door'); break
+      case 'tool-exit_door': store.setActiveTool('exit_door'); break
+      case 'tool-room': store.setActiveTool('room'); break
+      case 'tool-eraser': store.setActiveTool('eraser'); break
+      case 'tool-outside': store.setActiveTool('outside'); break
+      case 'tool-fill': store.setActiveTool('fill'); break
+      case 'tool-eyedrop': store.setActiveTool('eyedrop'); break
+      case 'tool-fillRoom': store.setActiveTool('fillRoom'); break
+      case 'straight-mode': store.setStraightMode(!store.straightMode); break
+      case 'undo': store.undo(); break
+      case 'redo': store.redo(); break
+      case 'save': saveToFile(store.exportFull()); break
+      case 'import': document.querySelector<HTMLInputElement>('input[type="file"][accept=".json"]')?.click(); break
+      case 'mode-edit': store.setMode('edit'); break
+      case 'mode-simulate': store.setMode('simulate'); break
+      case 'mode-preview': store.setMode('preview'); break
+      case 'add-floor': store.addFloor(); break
     }
   }
 
@@ -428,7 +495,9 @@ export function setupInteraction(
   function handleMouseLeave() {
     state.isPanning = false
     state.isDrawing = false
+    state.isRightErase = false
     state.straightGhost = null
+    state.fillGhost = null
     tooltip.classList.add('hidden')
   }
 
