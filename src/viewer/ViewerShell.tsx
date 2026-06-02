@@ -33,9 +33,9 @@ export default function ViewerShell({ map }: ViewerShellProps) {
   }, [])
 
   return (
-    <div className="h-full flex flex-col bg-gray-900 text-gray-100">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-gray-800 border-b border-gray-700">
-        <h1 className="text-sm font-semibold text-gray-200">{map.name}</h1>
+    <div className="h-full flex flex-col bg-deep-900 text-text-primary selection:bg-accent/20">
+      <div className="flex items-center justify-between px-3 py-2 bg-surface border-b border-border">
+        <h1 className="text-sm font-semibold text-text-primary">{map.name}</h1>
         <FloorSelector floors={map.floors} activeFloor={activeFloor} onChange={setActiveFloor} />
       </div>
       <div className="flex-1 flex overflow-hidden">
