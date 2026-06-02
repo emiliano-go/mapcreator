@@ -8,6 +8,7 @@ import type { NavDestination, ResolvedDest } from '../core/roomRegions'
 const DEST_EMOJI: Record<NavDestination['type'], string> = {
   room: '\u{1F3E0}',
   exit: '\u{1F6A8}',
+  door: '\u{1F6AA}',
   stairs: '\u{1F7E5}',
   elevator: '\u{1F7EA}',
 }
@@ -78,15 +79,15 @@ export default function PathPanel({ map, onSetA, onSetB, onRun, onClear, pathIds
   }, [map, onSetB])
 
   return (
-    <div className="w-72 bg-gray-800 border-l border-gray-700 p-3 text-sm overflow-y-auto">
-      <h3 className="text-gray-200 font-semibold mb-3">Navigation</h3>
+    <div className="w-72 bg-surface border-l border-border p-3 text-sm overflow-y-auto">
+      <h3 className="text-text-primary font-semibold mb-3 tracking-tight">Navigation</h3>
 
       <div className="mb-3">
-        <label className="text-xs text-gray-400 block mb-1">From</label>
+        <label className="text-xs text-text-tertiary block mb-1">From</label>
         <select
           value={aRoomId ?? ''}
           onChange={(e) => handleSelectA(e.target.value)}
-          className="w-full bg-gray-700 text-gray-200 px-1 py-0.5 rounded text-xs border border-gray-600 outline-none"
+          className="w-full bg-deep-700 text-text-primary px-2 py-1.5 rounded-lg text-xs border border-border outline-none transition-all duration-150 focus:border-accent cursor-pointer"
         >
           <option value="">-- Select destination --</option>
           {allDests.map((d) => (
@@ -98,11 +99,11 @@ export default function PathPanel({ map, onSetA, onSetB, onRun, onClear, pathIds
       </div>
 
       <div className="mb-3">
-        <label className="text-xs text-gray-400 block mb-1">To</label>
+        <label className="text-xs text-text-tertiary block mb-1">To</label>
         <select
           value={bRoomId ?? ''}
           onChange={(e) => handleSelectB(e.target.value)}
-          className="w-full bg-gray-700 text-gray-200 px-1 py-0.5 rounded text-xs border border-gray-600 outline-none"
+          className="w-full bg-deep-700 text-text-primary px-2 py-1.5 rounded-lg text-xs border border-border outline-none transition-all duration-150 focus:border-accent cursor-pointer"
         >
           <option value="">-- Select destination --</option>
           {allDests.map((d) => (
@@ -114,38 +115,38 @@ export default function PathPanel({ map, onSetA, onSetB, onRun, onClear, pathIds
       </div>
 
       <div className="mb-3">
-        <h4 className="text-xs text-gray-400 mb-1">Options</h4>
-        <label className="flex items-center gap-2 text-gray-300 mb-1">
-          <input type="checkbox" checked={accessibleOnly} onChange={(e) => setAccessibleOnly(e.target.checked)} />
+        <h4 className="text-xs text-text-tertiary mb-1">Options</h4>
+        <label className="flex items-center gap-2 text-text-secondary mb-1 cursor-pointer">
+          <input type="checkbox" checked={accessibleOnly} onChange={(e) => setAccessibleOnly(e.target.checked)} className="accent-accent" />
           Accessible only
         </label>
-        <label className="flex items-center gap-2 text-gray-300 mb-1">
-          <input type="checkbox" checked={preferElevator} onChange={(e) => setPreferElevator(e.target.checked)} />
+        <label className="flex items-center gap-2 text-text-secondary mb-1 cursor-pointer">
+          <input type="checkbox" checked={preferElevator} onChange={(e) => setPreferElevator(e.target.checked)} className="accent-accent" />
           Prefer elevator
         </label>
-        <label className="flex items-center gap-2 text-gray-300 mb-1">
-          <input type="checkbox" checked={noOutside} onChange={(e) => setNoOutside(e.target.checked)} />
+        <label className="flex items-center gap-2 text-text-secondary mb-1 cursor-pointer">
+          <input type="checkbox" checked={noOutside} onChange={(e) => setNoOutside(e.target.checked)} className="accent-accent" />
           No outside
         </label>
-        <div className="flex items-center gap-2 text-gray-300">
+        <div className="flex items-center gap-2 text-text-secondary">
           <span className="text-xs">Max floor changes:</span>
-          <input type="number" min={1} max={50} value={maxFloorChanges} onChange={(e) => setMaxFloorChanges(Number(e.target.value))} className="w-14 bg-gray-700 text-gray-200 px-1 py-0.5 rounded text-xs border border-gray-600 outline-none" />
+          <input type="number" min={1} max={50} value={maxFloorChanges} onChange={(e) => setMaxFloorChanges(Number(e.target.value))} className="w-14 bg-deep-700 text-text-primary px-1.5 py-1 rounded-lg text-xs border border-border outline-none focus:border-accent transition-all duration-150" />
         </div>
       </div>
 
       <div className="flex gap-2">
-        <button onClick={handleFindPath} disabled={!aRoomId || !bRoomId} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded text-sm transition-colors">
+        <button onClick={handleFindPath} disabled={!aRoomId || !bRoomId} className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-deep-600 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer font-medium shadow-sm shadow-accent/20 disabled:shadow-none">
           Find Path
         </button>
-        <button onClick={onClear} className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1.5 rounded text-sm transition-colors">
+        <button onClick={onClear} className="bg-deep-700 hover:bg-deep-600 text-text-secondary px-3 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer">
           Clear
         </button>
       </div>
 
       {pathIds && (
-        <div className="mt-3 bg-gray-900 rounded p-2 text-xs">
-          <div className="text-green-400 font-semibold mb-1">Path found!</div>
-          <div className="text-gray-400">Steps: {pathIds.length}</div>
+        <div className="mt-3 bg-success/10 rounded-xl p-2.5 text-xs border border-success/20">
+          <div className="text-success font-semibold mb-1">Path found!</div>
+          <div className="text-text-secondary">Steps: {pathIds.length}</div>
         </div>
       )}
     </div>
