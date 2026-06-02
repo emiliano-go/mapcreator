@@ -1,7 +1,9 @@
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { useStore } from './store'
 import type { BuildingMap } from '../core/types'
 import { validate } from '../core/validator'
+import { formatKeys, getKeys } from '../core/keybinds'
+import KeybindsPanel from './KeybindsPanel'
 
 export default function MenuBar() {
   const map = useStore((s) => s.map)
@@ -14,14 +16,15 @@ export default function MenuBar() {
   const canRedo = useStore((s) => s.canRedo)
   const validationErrors = useStore((s) => s.validationErrors)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showKeybinds, setShowKeybinds] = useState(false)
 
   const handleExport = useCallback(() => {
-    const data = useStore.getState().exportMap()
+    const data = useStore.getState().exportFull()
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${data.name.replace(/\s+/g, '_')}.json`
+    a.download = `${data.map.name.replace(/\s+/g, '_')}.json`
     a.click()
     URL.revokeObjectURL(url)
   }, [])
@@ -48,70 +51,108 @@ export default function MenuBar() {
     e.target.value = ''
   }, [importMap])
 
+  const isDark = useStore((s) => s.isDark)
+  const toggleTheme = useStore((s) => s.toggleTheme)
   const hasErrors = validationErrors.length > 0
 
   return (
-    <div className="flex items-center gap-2 bg-gray-900 px-3 py-1.5 border-b border-gray-700 text-sm">
-      <span className="text-gray-400 font-semibold mr-2">{map.name}</span>
+    <>
+      <div className="flex items-center gap-1.5 bg-surface px-3 py-2 border-b border-border text-sm select-none">
+        <span className="text-text-secondary font-semibold mr-2 tracking-wide text-[13px]">{map.name}</span>
 
-      <button onClick={() => fileInputRef.current?.click()} className="text-gray-300 hover:text-white px-2 py-0.5 rounded hover:bg-gray-700">
-        Import
-      </button>
-      <button onClick={handleExport} className="text-gray-300 hover:text-white px-2 py-0.5 rounded hover:bg-gray-700">
-        Export
-      </button>
-      <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="text-text-tertiary hover:text-text-primary px-2 py-1 rounded-md hover:bg-surface-hover transition-all duration-150 cursor-pointer text-[13px]"
+          title={`Import map (${formatKeys(getKeys('import'))})`}
+        >
+          Import
+        </button>
+        <button
+          onClick={handleExport}
+          className="text-text-tertiary hover:text-text-primary px-2 py-1 rounded-md hover:bg-surface-hover transition-all duration-150 cursor-pointer text-[13px]"
+          title={`Export map (${formatKeys(getKeys('save'))})`}
+        >
+          Export
+        </button>
+        <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
 
-      <div className="border-l border-gray-700 h-4 mx-1" />
+        <div className="border-l border-border h-4 mx-1" />
 
-      <button
-        onClick={undo}
-        disabled={!canUndo()}
-        className="text-gray-300 hover:text-white px-2 py-0.5 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-        title="Undo (Ctrl+Z)"
-      >
-        ↩
-      </button>
-      <button
-        onClick={redo}
-        disabled={!canRedo()}
-        className="text-gray-300 hover:text-white px-2 py-0.5 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
-        title="Redo (Ctrl+Shift+Z)"
-      >
-        ↪
-      </button>
+        <button
+          onClick={undo}
+          disabled={!canUndo()}
+          className="text-text-tertiary hover:text-text-primary px-2 py-1 rounded-md hover:bg-surface-hover transition-all duration-150 cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed text-[13px]"
+          title={`Undo (${formatKeys(getKeys('undo'))})`}
+        >
+          ↩
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedo()}
+          className="text-text-tertiary hover:text-text-primary px-2 py-1 rounded-md hover:bg-surface-hover transition-all duration-150 cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed text-[13px]"
+          title={`Redo (${formatKeys(getKeys('redo'))})`}
+        >
+          ↪
+        </button>
 
-      <div className="border-l border-gray-700 h-4 mx-1" />
+        <div className="border-l border-border h-4 mx-1" />
 
-      <div className="flex rounded overflow-hidden border border-gray-600">
-        {(['edit', 'simulate', 'preview'] as const).map((m) => {
-          const isActive = mode === m
-          const isDisabled = m !== 'edit' && hasErrors
-          return (
-            <button
-              key={m}
-              onClick={() => !isDisabled && setMode(m)}
-              disabled={isDisabled}
-              className={`px-3 py-0.5 text-xs uppercase tracking-wider transition-colors ${
-                isActive
-                  ? 'bg-blue-600 text-white'
-                  : isDisabled
-                  ? 'text-gray-600 cursor-not-allowed'
-                  : 'text-gray-400 hover:text-gray-200 bg-gray-800'
-              }`}
-            >
-              {m}
-              {isDisabled && <span className="ml-1 text-red-400" title="Fix validation errors first">!</span>}
-            </button>
-          )
-        })}
+        <div className="flex rounded-lg overflow-hidden border border-border bg-deep-800">
+          {(['edit', 'simulate', 'preview'] as const).map((m) => {
+            const isActive = mode === m
+            const isDisabled = m !== 'edit' && hasErrors
+            const modeKeys: Record<string, string> = {
+              edit: formatKeys(getKeys('mode-edit')),
+              simulate: formatKeys(getKeys('mode-simulate')),
+              preview: formatKeys(getKeys('mode-preview')),
+            }
+            return (
+              <button
+                key={m}
+                onClick={() => !isDisabled && setMode(m)}
+                disabled={isDisabled}
+                className={`px-3 py-1 text-xs font-medium uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+                  isActive
+                    ? 'bg-accent text-white shadow-sm'
+                    : isDisabled
+                    ? 'text-deep-500 cursor-not-allowed'
+                    : 'text-text-tertiary hover:text-text-primary bg-deep-900'
+                }`}
+                title={modeKeys[m]}
+              >
+                {m}
+                {isDisabled && <span className="ml-1 text-danger" title="Fix validation errors first">!</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {hasErrors && (
+          <span className="text-danger text-xs ml-1">
+            {validationErrors.length} floor{validationErrors.length > 1 ? 's' : ''} not connected
+          </span>
+        )}
+
+        <div className="ml-auto" />
+
+        <button
+          onClick={toggleTheme}
+          className="text-text-tertiary hover:text-text-primary px-2 py-1 rounded-md hover:bg-surface-hover transition-all duration-150 text-xs cursor-pointer"
+          title={`Switch to ${isDark ? 'light' : 'dark'} theme`}
+        >
+          {isDark ? '\u2600' : '\u263E'}
+        </button>
+
+        <button
+          onClick={() => setShowKeybinds(true)}
+          className="text-text-tertiary hover:text-text-primary px-2 py-1 rounded-md hover:bg-surface-hover transition-all duration-150 text-xs cursor-pointer"
+          title={`Keybinds (${formatKeys(getKeys('keybinds'))})`}
+        >
+          ⌨ Keybinds
+        </button>
       </div>
 
-      {hasErrors && (
-        <span className="text-red-400 text-xs ml-2">
-          {validationErrors.length} floor{validationErrors.length > 1 ? 's' : ''} not connected
-        </span>
-      )}
-    </div>
+      {showKeybinds && <KeybindsPanel onClose={() => setShowKeybinds(false)} />}
+    </>
   )
 }
