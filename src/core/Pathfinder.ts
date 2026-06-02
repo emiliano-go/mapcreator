@@ -61,64 +61,74 @@ export function findPath(
   toId: string,
   options?: PathfinderOptions,
 ): PathResult {
-  const { adjacency: graph, nodeMeta } = graphData
+  const { adjacency: graph, nodeMeta, nodeTypes } = graphData
 
   if (!graph.has(fromId) || !graph.has(toId)) {
     return { found: false, path: [], totalWeight: 0, floorChanges: 0 }
   }
 
-  const openSet = new MinHeap()
-  const gScore = new Map<string, number>()
-  const fScore = new Map<string, number>()
-  const cameFrom = new Map<string, string>()
-  const visited = new Set<string>()
+  function runAStar(skipStairs: boolean): PathResult {
+    const openSet = new MinHeap()
+    const gScore = new Map<string, number>()
+    const fScore = new Map<string, number>()
+    const cameFrom = new Map<string, string>()
+    const visited = new Set<string>()
 
-  gScore.set(fromId, 0)
-  fScore.set(fromId, heuristic(fromId, toId))
-  openSet.push(fromId, fScore.get(fromId)!)
+    gScore.set(fromId, 0)
+    fScore.set(fromId, heuristic(fromId, toId))
+    openSet.push(fromId, fScore.get(fromId)!)
 
-  while (openSet.size > 0) {
-    const current = openSet.pop()!
-    if (visited.has(current)) continue
-    visited.add(current)
+    while (openSet.size > 0) {
+      const current = openSet.pop()!
+      if (visited.has(current)) continue
+      visited.add(current)
 
-    if (current === toId) {
-      const nodeTypes = graphData.nodeTypes
-      return reconstructPath(cameFrom, current, graph, nodeMeta, nodeTypes, fromId)
-    }
-
-    const edges = graph.get(current)
-    if (!edges) continue
-
-    for (const edge of edges) {
-      const neighbor = edge.to
-
-      if (options?.accessibleOnly) {
-        const neighborMeta = nodeMeta.get(neighbor)
-        if (neighborMeta && neighborMeta.accessible === false) continue
+      if (current === toId) {
+        return reconstructPath(cameFrom, current, graph, nodeMeta, nodeTypes, fromId)
       }
 
-      if (options?.maxFloorChanges !== undefined) {
-        const currentFloor = Number(current.split(':')[0])
-        const neighborFloor = Number(neighbor.split(':')[0])
-        if (currentFloor !== neighborFloor) {
-          const changesSoFar = countFloorChanges(cameFrom, current)
-          if (changesSoFar >= options.maxFloorChanges) continue
+      const edges = graph.get(current)
+      if (!edges) continue
+
+      for (const edge of edges) {
+        if (skipStairs && edge.crossFloor && nodeTypes?.get(current)?.base === 'stairs') continue
+
+        const neighbor = edge.to
+
+        if (options?.accessibleOnly) {
+          const neighborMeta = nodeMeta.get(neighbor)
+          if (neighborMeta && neighborMeta.accessible === false) continue
         }
+
+        if (options?.maxFloorChanges !== undefined) {
+          const currentFloor = Number(current.split(':')[0])
+          const neighborFloor = Number(neighbor.split(':')[0])
+          if (currentFloor !== neighborFloor) {
+            const changesSoFar = countFloorChanges(cameFrom, current)
+            if (changesSoFar >= options.maxFloorChanges) continue
+          }
+        }
+
+        const tentativeG = (gScore.get(current) ?? Infinity) + edge.weight
+        if (tentativeG >= (gScore.get(neighbor) ?? Infinity)) continue
+
+        cameFrom.set(neighbor, current)
+        gScore.set(neighbor, tentativeG)
+        const f = tentativeG + heuristic(neighbor, toId)
+        fScore.set(neighbor, f)
+        openSet.push(neighbor, f)
       }
-
-      const tentativeG = (gScore.get(current) ?? Infinity) + edge.weight
-      if (tentativeG >= (gScore.get(neighbor) ?? Infinity)) continue
-
-      cameFrom.set(neighbor, current)
-      gScore.set(neighbor, tentativeG)
-      const f = tentativeG + heuristic(neighbor, toId)
-      fScore.set(neighbor, f)
-      openSet.push(neighbor, f)
     }
+
+    return { found: false, path: [], totalWeight: 0, floorChanges: 0 }
   }
 
-  return { found: false, path: [], totalWeight: 0, floorChanges: 0 }
+  if (options?.preferElevator) {
+    const result = runAStar(true)
+    if (result.found) return result
+  }
+
+  return runAStar(false)
 }
 
 function reconstructPath(
