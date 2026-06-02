@@ -46,13 +46,15 @@ export function findRoomRegions(floor: MapFloor): RoomRegion[] {
 
       const anchorMeta = floor.meta[`${anchorRow},${anchorCol}`]
 
+      const label = anchorMeta?.label ?? null
       regions.push({
         id: `${floor.floorIndex}:${anchorRow}:${anchorCol}`,
         floorIndex: floor.floorIndex,
         tiles,
         anchor: { row: anchorRow, col: anchorCol },
-        label: anchorMeta?.label ?? null,
+        label,
         doorCount: 0,
+        type: label ? 'room' : 'hallway',
       })
     }
   }
@@ -189,13 +191,72 @@ export function findPathBetweenRooms(
   return best
 }
 
+export interface OverlayGroup {
+  id: string
+  type: 'exit' | 'door'
+  floorIndex: number
+  tiles: Array<{ row: number; col: number }>
+  anchor: { row: number; col: number }
+  label?: string
+  tileCount: number
+}
+
+export function findOverlayGroups(floor: MapFloor, ovType: 'exit_door' | 'door'): OverlayGroup[] {
+  const visited = new Set<string>()
+  const groups: OverlayGroup[] = []
+  const typeLabel = ovType === 'exit_door' ? 'exit' as const : 'door' as const
+
+  for (let row = 0; row < floor.height; row++) {
+    for (let col = 0; col < floor.width; col++) {
+      const key = `${row},${col}`
+      if (visited.has(key)) continue
+      if (floor.overlay[row]?.[col] !== ovType) continue
+      visited.add(key)
+
+      const tiles: Array<{ row: number; col: number }> = []
+      const queue = [{ row, col }]
+      while (queue.length > 0) {
+        const cur = queue.pop()!
+        tiles.push(cur)
+        for (const [dr, dc] of DIRS) {
+          const nr = cur.row + dr
+          const nc = cur.col + dc
+          const nk = `${nr},${nc}`
+          if (visited.has(nk)) continue
+          if (nr < 0 || nr >= floor.height || nc < 0 || nc >= floor.width) continue
+          if (floor.overlay[nr]?.[nc] !== ovType) continue
+          visited.add(nk)
+          queue.push({ row: nr, col: nc })
+        }
+      }
+
+      const anchorRow = Math.min(...tiles.map((t) => t.row))
+      const anchorCol = Math.min(...tiles.filter((t) => t.row === anchorRow).map((t) => t.col))
+      const anchorMeta = floor.meta[`${anchorRow},${anchorCol}`]
+
+      groups.push({
+        id: `group:${typeLabel}:${floor.floorIndex}:${anchorRow}:${anchorCol}`,
+        type: typeLabel,
+        floorIndex: floor.floorIndex,
+        tiles,
+        anchor: { row: anchorRow, col: anchorCol },
+        label: anchorMeta?.label ?? undefined,
+        tileCount: tiles.length,
+      })
+    }
+  }
+
+  return groups
+}
+
 export interface NavDestination {
   id: string
   label: string
   floorIndex: number
   floorLabel: string
-  type: 'room' | 'exit' | 'stairs' | 'elevator'
+  type: 'room' | 'exit' | 'door' | 'stairs' | 'elevator'
   doorCount?: number
+  tileCount?: number
 }
 
 export function getAllDestinations(map: BuildingMap): NavDestination[] {
@@ -213,23 +274,32 @@ export function getAllDestinations(map: BuildingMap): NavDestination[] {
         floorLabel: flLabel,
         type: 'room',
         doorCount: 0,
+        tileCount: r.tiles.length,
       })
     }
 
-    for (let row = 0; row < floor.height; row++) {
-      for (let col = 0; col < floor.width; col++) {
-        const ov = floor.overlay[row]?.[col]
-        if (ov === 'exit_door') {
-          const meta = floor.meta[`${row},${col}`]
-          dests.push({
-            id: `exit:${floor.floorIndex}:${row}:${col}`,
-            label: meta?.label ?? `Exit (${row},${col})`,
-            floorIndex: floor.floorIndex,
-            floorLabel: flLabel,
-            type: 'exit',
-          })
-        }
-      }
+    const exitGroups = findOverlayGroups(floor, 'exit_door')
+    for (const g of exitGroups) {
+      dests.push({
+        id: g.id,
+        label: g.label ?? `Exit${g.tiles.length > 1 ? ` (${g.tiles.length}x)` : ''}`,
+        floorIndex: floor.floorIndex,
+        floorLabel: flLabel,
+        type: 'exit',
+        tileCount: g.tiles.length,
+      })
+    }
+
+    const doorGroups = findOverlayGroups(floor, 'door')
+    for (const g of doorGroups) {
+      dests.push({
+        id: g.id,
+        label: g.label ?? `Door${g.tiles.length > 1 ? ` (${g.tiles.length}x)` : ''}`,
+        floorIndex: floor.floorIndex,
+        floorLabel: flLabel,
+        type: 'door',
+        tileCount: g.tiles.length,
+      })
     }
 
     const visited = new Set<string>()
@@ -262,6 +332,7 @@ export function getAllDestinations(map: BuildingMap): NavDestination[] {
         const meta = floor.meta[`${anchorRow},${anchorCol}`]
 
         let label = bt === 'stairs' ? 'Stairs' : 'Elevator'
+        if (tiles.length > 1) label += ` (${tiles.length}x)`
         let extras: string[] = []
         if (bt === 'stairs') {
           if (meta?.toFloorSuperior != null) extras.push(`\u2191f${meta.toFloorSuperior}`)
@@ -278,6 +349,7 @@ export function getAllDestinations(map: BuildingMap): NavDestination[] {
           floorIndex: floor.floorIndex,
           floorLabel: flLabel,
           type: bt === 'stairs' ? 'stairs' : 'elevator',
+          tileCount: tiles.length,
         })
       }
     }
@@ -294,7 +366,22 @@ export interface ResolvedDest {
 
 export function resolveDestination(map: BuildingMap, destId: string): ResolvedDest[] {
   const parts = destId.split(':')
-  if (parts[0] === 'exit' || parts[0] === 'stairs' || parts[0] === 'elevator') {
+
+  if (parts[0] === 'group') {
+    const type = parts[1]
+    const fi = Number(parts[2])
+    const ar = Number(parts[3])
+    const ac = Number(parts[4])
+    const floor = map.floors.find((f) => f.floorIndex === fi)
+    if (!floor) return []
+    const ovType = type === 'exit' ? 'exit_door' as const : 'door' as const
+    const groups = findOverlayGroups(floor, ovType)
+    const group = groups.find((g) => g.anchor.row === ar && g.anchor.col === ac)
+    if (!group) return []
+    return group.tiles.map((t) => ({ floorIndex: fi, row: t.row, col: t.col }))
+  }
+
+  if (parts[0] === 'stairs' || parts[0] === 'elevator') {
     const fi = Number(parts[1])
     const r = Number(parts[2])
     const c = Number(parts[3])
@@ -303,7 +390,22 @@ export function resolveDestination(map: BuildingMap, destId: string): ResolvedDe
 
   const region = getAllRoomRegions(map).find((r) => r.id === destId)
   if (!region) return []
-  return getRoomDoors(map, region, 8)
+  const doors = getRoomDoors(map, region, 8)
+  if (doors.length > 0) return doors
+
+  const floor = map.floors.find((f) => f.floorIndex === region.floorIndex)
+  if (floor) {
+    const tiles: ResolvedDest[] = []
+    for (const t of region.tiles) {
+      const bt = floor.base[t.row]?.[t.col]
+      if (bt === 'stairs' || bt === 'elevator') {
+        tiles.push({ floorIndex: region.floorIndex, row: t.row, col: t.col })
+      }
+    }
+    if (tiles.length > 0) return tiles
+    return [{ floorIndex: region.floorIndex, row: region.anchor.row, col: region.anchor.col }]
+  }
+  return [{ floorIndex: region.floorIndex, row: region.anchor.row, col: region.anchor.col }]
 }
 
 export function getAnchorKey(tile: { row: number; col: number }): string {
@@ -359,7 +461,7 @@ export function cleanupStairsElevatorMeta(floor: MapFloor): MapFloor {
       const anchorRow = Math.min(...tiles.map((t) => t.row))
       const anchorCol = Math.min(...tiles.filter((t) => t.row === anchorRow).map((t) => t.col))
       const anchorMeta = newMeta[`${anchorRow},${anchorCol}`] ?? {}
-      const connKeys = ['toFloorSuperior', 'toFloorInferior', 'connectedFloors'] as const
+      const connKeys = ['toFloorSuperior', 'toFloorInferior', 'connectedFloors', 'accessible', 'weight', 'label'] as const
 
       for (const t of tiles) {
         const tk = `${t.row},${t.col}`
