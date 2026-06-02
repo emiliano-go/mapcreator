@@ -111,4 +111,5 @@ export interface RoomRegion {
   anchor: { row: number; col: number }
   label: string | null
   doorCount: number
+  type: 'room' | 'hallway'
 }
