@@ -38,11 +38,6 @@ export const DEFAULT_KEYBINDS: KeybindEntry[] = [
 
 const defaults = DEFAULT_KEYBINDS
 let keybinds: Record<string, string> = {}
-let loaded = false
-
-export function isReady() {
-  return loaded
-}
 
 export function initKeybinds(overrides?: KeybindEntry[]) {
   const src = overrides ?? defaults
@@ -51,12 +46,12 @@ export function initKeybinds(overrides?: KeybindEntry[]) {
     try {
       const parsed = JSON.parse(stored) as Record<string, string>
       keybinds = { ...mapDefaults(src), ...parsed }
-      loaded = true
       return
-    } catch {}
+    } catch {
+      // stored data is corrupted, fall through to defaults
+    }
   }
   keybinds = mapDefaults(src)
-  loaded = true
 }
 
 export function getKeys(id: string): string {

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, type ChangeEvent } from 'react'
 import { useStore } from './store'
 import type { BuildingMap } from '../core/types'
 import { validate } from '../core/validator'
@@ -29,7 +29,7 @@ export default function MenuBar() {
     URL.revokeObjectURL(url)
   }, [])
 
-  const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 

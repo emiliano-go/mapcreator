@@ -57,7 +57,7 @@ export function setupInteraction(
   setOffset: (ox: number, oy: number) => void,
   setTileSize: (ts: number) => void,
 ) {
-  let tooltip = document.createElement('div')
+  const tooltip = document.createElement('div')
   tooltip.className = 'fixed pointer-events-none bg-gray-900 text-white text-xs px-2 py-1 rounded z-50 hidden'
   document.body.appendChild(tooltip)
 
@@ -319,7 +319,7 @@ export function setupInteraction(
     state.fillGhost = null
 
     if (state.straightGhost) {
-      let pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
       if (!pos) return
       const dr = Math.abs(pos.row - state.straightGhost.startRow)
       const dc = Math.abs(pos.col - state.straightGhost.startCol)
@@ -461,7 +461,7 @@ export function setupInteraction(
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${(data.map as any).name ?? 'map'}.json`
+    a.download = `${data.map.name}.json`
     a.click()
     URL.revokeObjectURL(url)
 
@@ -469,7 +469,7 @@ export function setupInteraction(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        filename: `${(data.map as any).name ?? 'map'}.json`,
+        filename: `${data.map.name}.json`,
         data,
       }),
     }).catch(() => {})

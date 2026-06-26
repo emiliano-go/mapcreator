@@ -1,10 +1,8 @@
-import React, { useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import type { BuildingMap } from '../core/types'
 import ViewerCanvas from './ViewerCanvas'
 import PathPanel from './PathPanel'
 import FloorSelector from './FloorSelector'
-import { buildGraph } from '../core/GraphBuilder'
-import { findPath } from '../core/Pathfinder'
 
 interface ViewerShellProps {
   map: BuildingMap

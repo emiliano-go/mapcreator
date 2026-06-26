@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from './store'
 import { initKeybinds } from '../core/keybinds'
 import type { KeybindEntry } from '../core/keybinds'
@@ -43,11 +43,7 @@ export default function Shell() {
       <div className="flex-1 flex overflow-hidden">
         {mode !== 'preview' && <ToolPalette />}
         <div className="flex-1 relative">
-          {mode === 'preview' ? (
-            <EditorCanvas />
-          ) : (
-            <EditorCanvas />
-          )}
+          <EditorCanvas />
         </div>
         {mode === 'simulate' && <SimulatePanel />}
         {mode === 'edit' && <PropertyPanel />}

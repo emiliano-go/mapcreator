@@ -2,12 +2,8 @@ import type {
   BuildingMap,
   MapFloor,
   OverlayType,
-  PathfinderOptions,
-  PathResult,
   RoomRegion,
 } from './types'
-import { buildGraph } from './GraphBuilder'
-import { findPath } from './Pathfinder'
 
 const DIRS = [[0, 1], [0, -1], [1, 0], [-1, 0]]
 
@@ -130,7 +126,7 @@ export function getRoomDoors(
     if (cur.dist >= maxSearchDist) continue
 
     const bt = floor.base[cur.row]?.[cur.col]
-    if (bt !== 'floor' && bt !== 'stairs' && bt !== 'elevator' && bt !== 'dirt_path' && !(bt === 'wall' && (overlay === 'door' || overlay === 'exit_door'))) continue
+    if (bt !== 'floor' && bt !== 'stairs' && bt !== 'elevator' && bt !== 'dirt_path') continue
 
     for (const [dr, dc] of DIRS) {
       const nr = cur.row + dr
@@ -144,51 +140,6 @@ export function getRoomDoors(
   }
 
   return result
-}
-
-export function getRoomDoorCount(map: BuildingMap, region: RoomRegion): number {
-  return getRoomDoors(map, region).length
-}
-
-export function findPathBetweenRooms(
-  map: BuildingMap,
-  roomAId: string,
-  roomBId: string,
-  options?: PathfinderOptions,
-): PathResult | null {
-  const allRegions = getAllRoomRegions(map)
-  const roomA = allRegions.find((r) => r.id === roomAId)
-  const roomB = allRegions.find((r) => r.id === roomBId)
-  if (!roomA || !roomB) return null
-
-  const doorsA = getRoomDoors(map, roomA, 8)
-  const doorsB = getRoomDoors(map, roomB, 8)
-
-  if (doorsA.length === 0 || doorsB.length === 0) return null
-
-  const graphData = buildGraph(map, { noOutside: options?.noOutside })
-
-  let best: PathResult | null = null
-
-  for (const doorA of doorsA) {
-    const fromId = `${doorA.floorIndex}:${doorA.row}:${doorA.col}`
-
-    if (!graphData.adjacency.has(fromId)) continue
-
-    for (const doorB of doorsB) {
-      const toId = `${doorB.floorIndex}:${doorB.row}:${doorB.col}`
-
-      if (!graphData.adjacency.has(toId)) continue
-
-      const result = findPath(graphData, fromId, toId, options)
-
-      if (result.found && (!best || result.totalWeight < best.totalWeight)) {
-        best = result
-      }
-    }
-  }
-
-  return best
 }
 
 export interface OverlayGroup {
@@ -333,7 +284,7 @@ export function getAllDestinations(map: BuildingMap): NavDestination[] {
 
         let label = bt === 'stairs' ? 'Stairs' : 'Elevator'
         if (tiles.length > 1) label += ` (${tiles.length}x)`
-        let extras: string[] = []
+        const extras: string[] = []
         if (bt === 'stairs') {
           if (meta?.toFloorSuperior != null) extras.push(`\u2191f${meta.toFloorSuperior}`)
           if (meta?.toFloorInferior != null) extras.push(`\u2193f${meta.toFloorInferior}`)

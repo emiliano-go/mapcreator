@@ -95,4 +95,4 @@ export function useViewport() {
   }
 }
 
-export type ViewportController = ReturnType<typeof useViewport>
+

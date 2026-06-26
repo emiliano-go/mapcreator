@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useStore } from './store'
 import { validateFloorConnectivity } from '../core/validator'
 import { formatKeys, getKeys } from '../core/keybinds'

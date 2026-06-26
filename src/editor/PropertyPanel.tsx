@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import { useMemo } from 'react'
 import { useStore } from './store'
 import type { TileType, OverlayType } from '../core/types'
 import { getTileStyles, overlayStyles } from '../theme/tileStyles'

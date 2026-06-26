@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { getEntries, setKeybind, resetKeybinds, exportKeybinds, importKeybinds, formatKeys, type KeybindEntry } from '../core/keybinds'
 
 interface Props {
@@ -22,7 +22,7 @@ export default function KeybindsPanel({ onClose }: Props) {
     setEditingId(null)
   }, [])
 
-  const handleKeyCapture = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyCapture = useCallback((e: ReactKeyboardEvent) => {
     e.preventDefault()
     e.stopPropagation()
     if (!editingId) return

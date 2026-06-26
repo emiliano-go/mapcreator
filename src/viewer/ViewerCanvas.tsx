@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
 import type { BuildingMap } from '../core/types'
 import { renderFrame, type RenderState } from '../editor/canvas/renderer'
 
@@ -69,7 +69,7 @@ export default function ViewerCanvas({ map, activeFloor, pathIds, animHead = 0, 
     }
   }, [map, activeFloor, pathIds, animHead])
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
+  const handleClick = useCallback((e: MouseEvent) => {
     if (!onTileClick) return
     const tileSize = tileSizeRef.current
     const { offsetX, offsetY } = offsetRef.current

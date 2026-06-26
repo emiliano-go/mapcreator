@@ -1,5 +1,5 @@
 import { z } from 'zod/v4'
-import type { BuildingMap, FloorValidationError, OverlayType } from './types'
+import type { BuildingMap, FloorValidationError } from './types'
 
 const BaseTypeSchema = z.enum([
   'wall',
@@ -53,10 +53,6 @@ export const BuildingMapSchema = z.object({
 
 export function validate(data: unknown) {
   return BuildingMapSchema.safeParse(data)
-}
-
-export function validateOrThrow(data: unknown) {
-  return BuildingMapSchema.parse(data)
 }
 
 export function validateFloorConnectivity(map: BuildingMap): FloorValidationError[] {

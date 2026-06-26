@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
 import { useStore } from '../store'
 import { renderFrame, type RenderState, type GhostGroupInfo } from './renderer'
 import { getAllDestinations, findRoomRegions, findOverlayGroups } from '../../core/roomRegions'
@@ -260,7 +260,7 @@ export default function EditorCanvas() {
           const lt = s.lastTileTool
           if (lt && lt !== 'fill' && lt !== 'eraser' && lt !== 'select' && lt !== 'eyedrop' && lt !== 'fillRoom') {
             const ts = getTileStyles(s.isDark)
-            const fill = (ts as any)[lt]?.fill
+            const fill = (ts as Record<string, { fill?: string }>)[lt]?.fill
             if (fill) return fill
           }
           return 'rgba(255,255,255,0.3)'
@@ -286,7 +286,7 @@ export default function EditorCanvas() {
     }
   }, [])
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
+  const handleClick = useCallback((e: MouseEvent) => {
     if (useStore.getState().mode !== 'simulate') return
     const tileSize = tileSizeRef.current
     const { offsetX, offsetY } = offsetRef.current

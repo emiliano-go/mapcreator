@@ -1,4 +1,3 @@
-import React from 'react'
 import { useStore } from './editor/store'
 import Shell from './editor/Shell'
 import ViewerShell from './viewer/ViewerShell'
