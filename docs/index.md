@@ -8,24 +8,24 @@ seo:
     title: MapCreator Documentation
     description: A tile-based building map editor with A* pathfinding. Draw floors, connect rooms, navigate A to B.
     url: https://emiliano-go.github.io/mapcreator/
-    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image: https://emiliano-go.github.io/mapcreator/assets/images/mapcreator-banner.png
     image:width: 1200
     image:height: 630
-    image:alt: MapCreator documentation
+    image:alt: MapCreator banner
     site_name: MapCreator Documentation
     locale: en_US
   twitter:
     card: summary_large_image
     title: MapCreator Documentation
     description: A tile-based building map editor with A* pathfinding. Draw floors, connect rooms, navigate A to B.
-    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
-    image:alt: MapCreator documentation
+    image: https://emiliano-go.github.io/mapcreator/assets/images/mapcreator-banner.png
+    image:alt: MapCreator banner
     site: '@emiliano_go_'
   description: A tile-based building map editor with A* pathfinding. Draw floors, connect rooms, navigate A to B.
 ---
 
 <div style="text-align: center">
-  <img src="src/assets/hero.png" alt="MapCreator" width="80%"/>
+  <img src="assets/images/mapcreator-banner.png" alt="MapCreator banner" width="100%"/>
 </div>
 <p align="center">
   <strong style="font-size: 2.5em;">MapCreator</strong>

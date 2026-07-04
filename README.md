@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="docs/assets/images/mapcreator-banner.png" alt="MapCreator banner" width="100%">
+</p>
+
+<p align="center">
   <h1 align="center">mapcreator</h1>
 </p>
 
