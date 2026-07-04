@@ -1,6 +1,9 @@
 name: CI
 
-on: [pull_request]
+on:
+  push:
+    branches: [master]
+  pull_request:
 
 jobs:
   lint-test:
@@ -10,7 +13,7 @@ jobs:
       - uses: pnpm/action-setup@v3
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
-      - run: pnpm test -- --coverage
+      - run: pnpm test:coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
