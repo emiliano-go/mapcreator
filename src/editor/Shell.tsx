@@ -15,7 +15,7 @@ export default function Shell() {
 
   useEffect(() => {
     initKeybinds()
-    setReady(true)
+    queueMicrotask(() => setReady(true))
 
     const stored = localStorage.getItem('mapcreator-theme')
     if (stored === 'dark') {
