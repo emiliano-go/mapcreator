@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/images/mapcreator-banner-v2.png" alt="MapCreator banner" width="100%">
+  <img src="https://raw.githubusercontent.com/emiliano-go/mapcreator/master/docs/assets/images/mapcreator-banner-v2.png" alt="MapCreator banner" width="100%">
 </p>
 
 <p align="center">

@@ -84,18 +84,6 @@ name = "MapCreator on GitHub"
 tables = {}
 admonition = {}
 toc = { permalink = true }
-"seoslug.contrib.zensical" = {
-  canonical_host = "emiliano-go.github.io",
-  public_base_url = "https://emiliano-go.github.io/mapcreator/",
-  site_name = "MapCreator Documentation",
-  title_template = "{title} - MapCreator",
-  default_og_image = "https://emiliano-go.github.io/mapcreator/assets/images/hero.png",
-  publisher_name = "Emiliano Gandini Outeda",
-  locale = "en_US",
-  twitter_site = "@emiliano_go_",
-  auto_generate_schema = true,
-  debug_dir = ".seo-debug",
-}
 
 [project.markdown_extensions.pymdownx]
 highlight = { anchor_linenums = true, line_spans = "__span", pygments_lang_class = true }
