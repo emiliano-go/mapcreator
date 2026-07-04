@@ -1,6 +1,40 @@
-# mapcreator
+---
+seo:
+  title: MapCreator Documentation
+  canonical: https://emiliano-go.github.io/mapcreator/
+  robots: index,follow
+  og:
+    type: website
+    title: MapCreator Documentation
+    description: A tile-based building map editor with A* pathfinding. Draw floors, connect rooms, navigate A to B.
+    url: https://emiliano-go.github.io/mapcreator/
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:width: 1200
+    image:height: 630
+    image:alt: MapCreator documentation
+    site_name: MapCreator Documentation
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: MapCreator Documentation
+    description: A tile-based building map editor with A* pathfinding. Draw floors, connect rooms, navigate A to B.
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:alt: MapCreator documentation
+    site: '@emiliano_go_'
+  description: A tile-based building map editor with A* pathfinding. Draw floors, connect rooms, navigate A to B.
+---
 
-mapcreator is a tile-based building map editor and viewer.
+<div style="text-align: center">
+  <img src="src/assets/hero.png" alt="MapCreator" width="80%"/>
+</div>
+<p align="center">
+  <strong style="font-size: 2.5em;">MapCreator</strong>
+</p>
+<p align="center">
+  <em>Tile-based building map editor with A* pathfinding.</em>
+</p>
+
+MapCreator is a tile-based building map editor and viewer.
 It lets you paint floor plans on a canvas, define rooms and connections, and navigate between points using A* pathfinding.
 
 The project is a GitHub template repository.

@@ -1,3 +1,29 @@
+---
+seo:
+  title: Pathfinding - MapCreator Documentation
+  canonical: https://emiliano-go.github.io/mapcreator/pathfinding
+  robots: index,follow
+  og:
+    type: website
+    title: Pathfinding - MapCreator Documentation
+    description: A* algorithm, graph construction, weight system, destination resolution, and floor changes.
+    url: https://emiliano-go.github.io/mapcreator/pathfinding
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:width: 1200
+    image:height: 630
+    image:alt: MapCreator documentation
+    site_name: MapCreator Documentation
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: Pathfinding - MapCreator Documentation
+    description: A* algorithm, graph construction, weight system, destination resolution, and floor changes.
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:alt: MapCreator documentation
+    site: '@emiliano_go_'
+  description: A* algorithm, graph construction, weight system, destination resolution, and floor changes.
+---
+
 # Pathfinding
 
 ## Algorithm

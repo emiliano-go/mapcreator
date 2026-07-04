@@ -1,4 +1,30 @@
-# Viewer guide
+---
+seo:
+  title: Viewer Guide - MapCreator Documentation
+  canonical: https://emiliano-go.github.io/mapcreator/viewer-guide
+  robots: index,follow
+  og:
+    type: website
+    title: Viewer Guide - MapCreator Documentation
+    description: Using the read-only navigation interface, finding paths, destination selectors, and embedding.
+    url: https://emiliano-go.github.io/mapcreator/viewer-guide
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:width: 1200
+    image:height: 630
+    image:alt: MapCreator documentation
+    site_name: MapCreator Documentation
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: Viewer Guide - MapCreator Documentation
+    description: Using the read-only navigation interface, finding paths, destination selectors, and embedding.
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:alt: MapCreator documentation
+    site: '@emiliano_go_'
+  description: Using the read-only navigation interface, finding paths, destination selectors, and embedding.
+---
+
+# Viewer Guide
 
 The viewer is a read-only navigation interface.
 It lets users find paths between destinations on the map.

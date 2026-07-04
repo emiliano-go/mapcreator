@@ -1,4 +1,30 @@
-# Editor guide
+---
+seo:
+  title: Editor Guide - MapCreator Documentation
+  canonical: https://emiliano-go.github.io/mapcreator/editor-guide
+  robots: index,follow
+  og:
+    type: website
+    title: Editor Guide - MapCreator Documentation
+    description: Full guide to the canvas-based tile painter, tools, layers, floor management, and simulation mode.
+    url: https://emiliano-go.github.io/mapcreator/editor-guide
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:width: 1200
+    image:height: 630
+    image:alt: MapCreator documentation
+    site_name: MapCreator Documentation
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: Editor Guide - MapCreator Documentation
+    description: Full guide to the canvas-based tile painter, tools, layers, floor management, and simulation mode.
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:alt: MapCreator documentation
+    site: '@emiliano_go_'
+  description: Full guide to the canvas-based tile painter, tools, layers, floor management, and simulation mode.
+---
+
+# Editor Guide
 
 The editor is a full-featured canvas-based tile painter.
 It is the default view when you open the app.

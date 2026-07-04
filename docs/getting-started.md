@@ -1,4 +1,30 @@
-# Getting started
+---
+seo:
+  title: Getting Started - MapCreator Documentation
+  canonical: https://emiliano-go.github.io/mapcreator/getting-started
+  robots: index,follow
+  og:
+    type: website
+    title: Getting Started - MapCreator Documentation
+    description: Prerequisites, install, first map, export, and build.
+    url: https://emiliano-go.github.io/mapcreator/getting-started
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:width: 1200
+    image:height: 630
+    image:alt: MapCreator documentation
+    site_name: MapCreator Documentation
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: Getting Started - MapCreator Documentation
+    description: Prerequisites, install, first map, export, and build.
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:alt: MapCreator documentation
+    site: '@emiliano_go_'
+  description: Prerequisites, install, first map, export, and build.
+---
+
+# Getting Started
 
 ## Prerequisites
 

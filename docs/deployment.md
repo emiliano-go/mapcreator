@@ -1,3 +1,29 @@
+---
+seo:
+  title: Deployment - MapCreator Documentation
+  canonical: https://emiliano-go.github.io/mapcreator/deployment
+  robots: index,follow
+  og:
+    type: website
+    title: Deployment - MapCreator Documentation
+    description: Static build, Node.js server, Docker, nginx, GitHub Pages, and viewer mode.
+    url: https://emiliano-go.github.io/mapcreator/deployment
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:width: 1200
+    image:height: 630
+    image:alt: MapCreator documentation
+    site_name: MapCreator Documentation
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: Deployment - MapCreator Documentation
+    description: Static build, Node.js server, Docker, nginx, GitHub Pages, and viewer mode.
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:alt: MapCreator documentation
+    site: '@emiliano_go_'
+  description: Static build, Node.js server, Docker, nginx, GitHub Pages, and viewer mode.
+---
+
 # Deployment
 
 ## Build static files

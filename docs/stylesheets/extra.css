@@ -1,0 +1,14 @@
+:root {
+    --md-primary-fg-color: #8839ef;
+}
+
+.md-content__inner > h1#__skip {
+    display: none;
+}
+
+.md-typeset table td:first-child code {
+    white-space: nowrap;
+}
+
+[data-md-color-scheme="default"] img.banner-dark { display: none !important; }
+[data-md-color-scheme="slate"]   img.banner-light { display: none !important; }

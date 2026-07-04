@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block site_meta %}
+{% if page and page.meta and page.meta.seo_html %}
+{{ page.meta.seo_html | safe }}
+{% else %}
+{{ super() }}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function() {
+  function showBanner(scheme) {
+    document.querySelectorAll('.banner-light').forEach(function(el) {
+      el.style.display = scheme === 'slate' ? 'none' : '';
+    });
+    document.querySelectorAll('.banner-dark').forEach(function(el) {
+      el.style.display = scheme === 'default' ? 'none' : '';
+    });
+  }
+  var target = document.body;
+  if (target) {
+    showBanner(target.getAttribute('data-md-color-scheme'));
+    var observer = new MutationObserver(function() {
+      showBanner(target.getAttribute('data-md-color-scheme'));
+    });
+    observer.observe(target, { attributes: true, attributeFilter: ['data-md-color-scheme'] });
+  }
+})();
+</script>
+{% endblock %}

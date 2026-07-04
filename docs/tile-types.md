@@ -1,4 +1,30 @@
-# Tile types
+---
+seo:
+  title: Tile Types - MapCreator Documentation
+  canonical: https://emiliano-go.github.io/mapcreator/tile-types
+  robots: index,follow
+  og:
+    type: website
+    title: Tile Types - MapCreator Documentation
+    description: Base tiles, overlays, metadata fields, and default color palettes reference.
+    url: https://emiliano-go.github.io/mapcreator/tile-types
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:width: 1200
+    image:height: 630
+    image:alt: MapCreator documentation
+    site_name: MapCreator Documentation
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: Tile Types - MapCreator Documentation
+    description: Base tiles, overlays, metadata fields, and default color palettes reference.
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:alt: MapCreator documentation
+    site: '@emiliano_go_'
+  description: Base tiles, overlays, metadata fields, and default color palettes reference.
+---
+
+# Tile Types
 
 ## Base tiles
 

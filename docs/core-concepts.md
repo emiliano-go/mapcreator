@@ -1,4 +1,30 @@
-# Core concepts
+---
+seo:
+  title: Core Concepts - MapCreator Documentation
+  canonical: https://emiliano-go.github.io/mapcreator/core-concepts
+  robots: index,follow
+  og:
+    type: website
+    title: Core Concepts - MapCreator Documentation
+    description: Data model, tiles, graph construction, pathfinding, room detection, validation, and migrations.
+    url: https://emiliano-go.github.io/mapcreator/core-concepts
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:width: 1200
+    image:height: 630
+    image:alt: MapCreator documentation
+    site_name: MapCreator Documentation
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: Core Concepts - MapCreator Documentation
+    description: Data model, tiles, graph construction, pathfinding, room detection, validation, and migrations.
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:alt: MapCreator documentation
+    site: '@emiliano_go_'
+  description: Data model, tiles, graph construction, pathfinding, room detection, validation, and migrations.
+---
+
+# Core Concepts
 
 ## Data model
 
@@ -57,7 +83,7 @@ GraphData {
 
 A* with Manhattan heuristic. The `Pathfinder` takes a graph, a start node ID, and a goal node ID. It returns a path as an ordered list of nodes with total weight and floor change count.
 
-Options include accessibleOnly, preferElevator, maxFloorChanges, and noOutside.
+Options include `accessibleOnly`, `preferElevator`, `maxFloorChanges`, and `noOutside`.
 
 ## Room regions
 
@@ -65,7 +91,7 @@ Room detection uses BFS flood-fill to find contiguous tiles with a room overlay.
 
 ## Validation
 
-Zod schemas validate the entire BuildingMap structure on import and export. An additional `validateFloorConnectivity` check ensures every floor has at least one exit or vertical connection.
+Zod schemas validate the entire `BuildingMap` structure on import and export. An additional `validateFloorConnectivity` check ensures every floor has at least one exit or vertical connection.
 
 ## Migrations
 

@@ -1,3 +1,29 @@
+---
+seo:
+  title: Configuration - MapCreator Documentation
+  canonical: https://emiliano-go.github.io/mapcreator/configuration
+  robots: index,follow
+  og:
+    type: website
+    title: Configuration - MapCreator Documentation
+    description: Map config fields, theme customization, tile styles, CSS variables, and keyboard shortcuts.
+    url: https://emiliano-go.github.io/mapcreator/configuration
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:width: 1200
+    image:height: 630
+    image:alt: MapCreator documentation
+    site_name: MapCreator Documentation
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: Configuration - MapCreator Documentation
+    description: Map config fields, theme customization, tile styles, CSS variables, and keyboard shortcuts.
+    image: https://emiliano-go.github.io/mapcreator/assets/images/hero.png
+    image:alt: MapCreator documentation
+    site: '@emiliano_go_'
+  description: Map config fields, theme customization, tile styles, CSS variables, and keyboard shortcuts.
+---
+
 # Configuration
 
 ## Map config
