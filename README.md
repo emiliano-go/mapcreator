@@ -102,6 +102,7 @@ Expected test coverage is measured by Codecov. Coverage reports are generated au
 - [Viewer Guide](docs/viewer-guide.md) - A to B navigation and pathfinding
 - [Tile Types](docs/tile-types.md) - base tiles and overlays reference
 - [Configuration](docs/configuration.md) - map config and theme reference
+- [JSON Export](docs/json-export.md) - export format, usage, and customization
 - [Pathfinding](docs/pathfinding.md) - A* algorithm, weights, and floor changes
 - [Deployment](docs/deployment.md) - Docker, nginx, and GitHub Pages
 

@@ -72,6 +72,9 @@ name = "MapCreator on GitHub"
 "Configuration" = "configuration.md"
 
 [[project.nav]]
+"JSON Export" = "json-export.md"
+
+[[project.nav]]
 "Pathfinding" = "pathfinding.md"
 
 [[project.nav]]
