@@ -5,7 +5,7 @@ on:
     branches: [master]
     paths:
       - docs/**
-      - zensical.toml
+      - config/zensical.toml
       - .github/workflows/deploy-docs.yml
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.x'
       - run: pip install zensical
-      - run: zensical build --clean
+      - run: zensical build --config config/zensical.toml --clean
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site

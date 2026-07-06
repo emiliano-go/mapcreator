@@ -10,7 +10,7 @@ RUN pnpm run build
 FROM node:22-alpine
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
-COPY server.js .
+COPY docker/server.js ./server.js
 ENV PORT=80
 ENV STATIC_DIR=/app/dist
 ENV EXPORT_DIR=/exports

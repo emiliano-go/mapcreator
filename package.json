@@ -5,16 +5,16 @@
   "packageManager": "pnpm@10.33.4",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "typecheck": "tsc --noEmit",
-    "preview": "vite preview",
-    "lint": "eslint .",
+    "dev": "vite --config config/vite.config.ts",
+    "build": "vite build --config config/vite.config.ts",
+    "typecheck": "tsc --noEmit --project config/tsconfig.json",
+    "preview": "vite preview --config config/vite.config.ts",
+    "lint": "eslint --config config/eslint.config.js .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest",
-    "validate-maps": "tsx src/core/validator.ts"
+    "test": "vitest run --config config/vite.config.ts",
+    "test:coverage": "vitest run --config config/vite.config.ts --coverage",
+    "test:watch": "vitest --config config/vite.config.ts",
+    "validate-maps": "tsx --tsconfig config/tsconfig.json src/core/validator.ts"
   },
   "prettier": {
     "semi": false,
