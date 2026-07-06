@@ -2,7 +2,7 @@
 site_name = "MapCreator Documentation"
 site_description = "MapCreator: a tile-based building map editor with A* pathfinding. Draw floors, connect rooms, navigate A to B."
 site_url = "https://emiliano-go.github.io/mapcreator"
-docs_dir = "../docs"
+docs_dir = "docs"
 site_dir = "site"
 
 copyright = "&copy; 2026 Emiliano Gandini Outeda"
@@ -11,7 +11,7 @@ extra_css = ["stylesheets/extra.css"]
 
 [project.theme]
 variant = "modern"
-custom_dir = "../docs/overrides"
+custom_dir = "docs/overrides"
 favicon = "favicon.svg"
 
 font.text = "Ubuntu"
