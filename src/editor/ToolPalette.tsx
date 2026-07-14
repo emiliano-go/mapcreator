@@ -40,9 +40,17 @@ const actionTools: Array<{ tool: EditorTool; label: string; id: string }> = [
 export default function ToolPalette() {
   const activeTool = useStore((s) => s.activeTool)
   const straightMode = useStore((s) => s.straightMode)
+  const selection = useStore((s) => s.selection)
   const setActiveTool = useStore((s) => s.setActiveTool)
   const setStraightMode = useStore((s) => s.setStraightMode)
+  const flipSelectionHorizontal = useStore((s) => s.flipSelectionHorizontal)
+  const flipSelectionVertical = useStore((s) => s.flipSelectionVertical)
   const tileStyles = getTileStyles(useStore((s) => s.isDark))
+
+  const selectionSize = {
+    horizontal: selection && Math.abs(selection?.startRow - selection?.endRow) || 0,
+    vertical: selection && Math.abs(selection?.startCol - selection?.endCol) || 0,
+  }
 
   return (
     <div className="flex flex-col gap-0.5 p-2 bg-surface border-r border-border w-44 overflow-y-auto">
@@ -75,6 +83,27 @@ export default function ToolPalette() {
           </button>
         )
       })}
+
+      {(selection && (selectionSize.horizontal >= 1 || selectionSize.vertical >= 1)) && (
+        <>
+          <div className="border-t border-border my-1.5" />
+          <div className="text-[10px] text-text-tertiary uppercase tracking-widest font-medium mb-1 px-1">Selection</div>
+          <button
+            onClick={flipSelectionHorizontal}
+            className="text-left px-2.5 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+            title="Flip selection horizontally"
+          >
+            ↔ Flip Horizontal
+          </button>
+          <button
+            onClick={flipSelectionVertical}
+            className="text-left px-2.5 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+            title="Flip selection vertically"
+          >
+            ↕ Flip Vertical
+          </button>
+        </>
+      )}
 
       <div className="border-t border-border my-1.5" />
 

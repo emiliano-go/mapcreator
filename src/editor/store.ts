@@ -85,6 +85,8 @@ export interface EditorStore {
   erase: (row: number, col: number, skipHistory?: boolean) => void
   setSelection: (sel: { startRow: number; startCol: number; endRow: number; endCol: number } | null) => void
   pasteRegion: (sourceStartRow: number, sourceStartCol: number, sourceEndRow: number, sourceEndCol: number, offsetRow: number, offsetCol: number) => void
+  flipSelectionHorizontal: () => void
+  flipSelectionVertical: () => void
   setTileMeta: (row: number, col: number, meta: Partial<TileMeta>) => void
   setMode: (mode: EditorMode) => void
   setStraightMode: (v: boolean) => void
@@ -452,6 +454,92 @@ export const useStore = create<EditorStore>((set, get) => ({
       }
 
       let result = { ...f, base: newBase, overlay: newOverlay, meta: newMeta }
+      if (hasRoom) result = cleanupRoomMeta(result)
+      return result
+    })
+
+    const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
+    set({ map: newMap })
+    get().runValidation()
+  },
+
+  flipSelectionHorizontal: () => {
+    const { map, activeFloor, selection } = get()
+    if (!selection) return
+    const floor = map.floors.find((f) => f.floorIndex === activeFloor)
+    if (!floor) return
+
+    get().pushHistory()
+
+    const { startRow, startCol, endRow, endCol } = selection
+    const newFloors = map.floors.map((f) => {
+      if (f.floorIndex !== activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      let hasRoom = false
+
+      for (let r = startRow; r <= endRow; r++) {
+        for (let c = startCol; c <= Math.floor((startCol + endCol) / 2); c++) {
+          const mirrorC = endCol - (c - startCol)
+          if (mirrorC === c) continue
+
+          const tmpBase = newBase[r][c]
+          newBase[r][c] = newBase[r][mirrorC]
+          newBase[r][mirrorC] = tmpBase
+
+          const tmpOverlay = newOverlay[r][c]
+          newOverlay[r][c] = newOverlay[r][mirrorC]
+          newOverlay[r][mirrorC] = tmpOverlay
+
+          if (newOverlay[r][c] === 'room') hasRoom = true
+          if (newOverlay[r][mirrorC] === 'room') hasRoom = true
+        }
+      }
+
+      let result = { ...f, base: newBase, overlay: newOverlay }
+      if (hasRoom) result = cleanupRoomMeta(result)
+      return result
+    })
+
+    const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
+    set({ map: newMap })
+    get().runValidation()
+  },
+
+  flipSelectionVertical: () => {
+    const { map, activeFloor, selection } = get()
+    if (!selection) return
+    const floor = map.floors.find((f) => f.floorIndex === activeFloor)
+    if (!floor) return
+
+    get().pushHistory()
+
+    const { startRow, startCol, endRow, endCol } = selection
+    const newFloors = map.floors.map((f) => {
+      if (f.floorIndex !== activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      let hasRoom = false
+
+      for (let c = startCol; c <= endCol; c++) {
+        for (let r = startRow; r <= Math.floor((startRow + endRow) / 2); r++) {
+          const mirrorR = endRow - (r - startRow)
+          if (mirrorR === r) continue
+
+          const tmpBase = newBase[r][c]
+          newBase[r][c] = newBase[mirrorR][c]
+          newBase[mirrorR][c] = tmpBase
+
+          const tmpOverlay = newOverlay[r][c]
+          newOverlay[r][c] = newOverlay[mirrorR][c]
+          newOverlay[mirrorR][c] = tmpOverlay
+
+          if (newOverlay[r][c] === 'room') hasRoom = true
+          if (newOverlay[mirrorR][c] === 'room') hasRoom = true
+        }
+      }
+
+      let result = { ...f, base: newBase, overlay: newOverlay }
       if (hasRoom) result = cleanupRoomMeta(result)
       return result
     })
