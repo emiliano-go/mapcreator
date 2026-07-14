@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
 import { useStore } from '../store'
 import { renderFrame, type RenderState, type GhostGroupInfo } from './renderer'
-import { getAllDestinations, findRoomRegions, findOverlayGroups } from '../../core/roomRegions'
-import type { RoomRegion, OverlayGroup, BuildingMap, MapFloor } from '../../core/types'
-import { setupInteraction, getStraightGhost, getFillGhost, getRectGhost } from './interaction'
+import { getAllDestinations, OverlayGroup, findRoomRegions, findOverlayGroups } from '../../core/roomRegions'
+import type { RoomRegion, BuildingMap, MapFloor } from '../../core/types'
+import { setupInteraction, getStraightGhost, getFillGhost, getRectGhost, getSelectGhost, getDragGhost } from './interaction'
 import { getTileStyles } from '../../theme/tileStyles'
 
 function findStairElevatorGroups(floor: MapFloor): GhostGroupInfo[] {
@@ -257,6 +257,8 @@ export default function EditorCanvas() {
         straightGhost: getStraightGhost(),
         rectGhost: getRectGhost(),
         fillGhost: getFillGhost(),
+        selectGhost: getSelectGhost(),
+        dragGhost: getDragGhost(),
         fillGhostFill: (() => {
           const lt = s.lastTileTool
           if (lt && lt !== 'fill' && lt !== 'eraser' && lt !== 'select' && lt !== 'eyedrop' && lt !== 'fillRoom') {

@@ -18,6 +18,16 @@ interface InteractionState {
     endRow: number; endCol: number
   } | null
   fillGhost: Array<{ row: number; col: number }> | null
+  selectGhost: {
+    startRow: number; startCol: number
+    endRow: number; endCol: number
+  } | null
+  dragGhost: {
+    sourceStartRow: number; sourceStartCol: number
+    sourceEndRow: number; sourceEndCol: number
+    anchorRow: number; anchorCol: number
+    currentRow: number; currentCol: number
+  } | null
 }
 
 const state: InteractionState = {
@@ -29,6 +39,8 @@ const state: InteractionState = {
   straightGhost: null,
   rectGhost: null,
   fillGhost: null,
+  selectGhost: null,
+  dragGhost: null,
 }
 
 export function getStraightGhost() {
@@ -41,6 +53,14 @@ export function getFillGhost() {
 
 export function getRectGhost() {
   return state.rectGhost
+}
+
+export function getSelectGhost() {
+  return state.selectGhost
+}
+
+export function getDragGhost() {
+  return state.dragGhost
 }
 
 function getGridPos(
@@ -133,7 +153,21 @@ export function setupInteraction(
     }
 
     if (tool === 'select') {
-      store.setSelection(pos)
+      if (e.altKey && store.selection) {
+        const { startRow, startCol, endRow, endCol } = store.selection
+        if (pos.row >= startRow && pos.row <= endRow && pos.col >= startCol && pos.col <= endCol) {
+          state.dragGhost = {
+            sourceStartRow: startRow, sourceStartCol: startCol,
+            sourceEndRow: endRow, sourceEndCol: endCol,
+            anchorRow: pos.row, anchorCol: pos.col,
+            currentRow: pos.row, currentCol: pos.col,
+          }
+          state.isDrawing = true
+          return
+        }
+      }
+      state.selectGhost = { startRow: pos.row, startCol: pos.col, endRow: pos.row, endCol: pos.col }
+      state.isDrawing = true
       return
     }
 
@@ -353,6 +387,32 @@ export function setupInteraction(
       return
     }
 
+    if (state.selectGhost) {
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      if (!pos) return
+      const held = e.buttons & 1
+      if (!held) {
+        state.selectGhost = null
+        state.isDrawing = false
+        return
+      }
+      state.selectGhost = { ...state.selectGhost, endRow: pos.row, endCol: pos.col }
+      return
+    }
+
+    if (state.dragGhost) {
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      if (!pos) return
+      const held = e.buttons & 1
+      if (!held) {
+        state.dragGhost = null
+        state.isDrawing = false
+        return
+      }
+      state.dragGhost = { ...state.dragGhost, currentRow: pos.row, currentCol: pos.col }
+      return
+    }
+
     if (state.isDrawing) {
       const held = (e.buttons & 1) || (e.buttons & 2)
       if (!held) {
@@ -482,6 +542,32 @@ export function setupInteraction(
   }
 
   function handleMouseUp() {
+    if (state.selectGhost) {
+      const { startRow, startCol, endRow, endCol } = state.selectGhost
+      state.selectGhost = null
+      state.isDrawing = false
+      const store = useStore.getState()
+      store.setSelection({
+        startRow: Math.min(startRow, endRow),
+        startCol: Math.min(startCol, endCol),
+        endRow: Math.max(startRow, endRow),
+        endCol: Math.max(startCol, endCol),
+      })
+      return
+    }
+
+    if (state.dragGhost) {
+      const { sourceStartRow, sourceStartCol, sourceEndRow, sourceEndCol, anchorRow, anchorCol, currentRow, currentCol } = state.dragGhost
+      state.dragGhost = null
+      state.isDrawing = false
+      const store = useStore.getState()
+      store.pasteRegion(
+        sourceStartRow, sourceStartCol, sourceEndRow, sourceEndCol,
+        currentRow - anchorRow, currentCol - anchorCol,
+      )
+      return
+    }
+
     if (state.rectGhost) {
       const store = useStore.getState()
       const { startRow, startCol, endRow, endCol } = state.rectGhost

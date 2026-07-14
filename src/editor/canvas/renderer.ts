@@ -16,7 +16,14 @@ export interface RenderState {
   offsetX: number
   offsetY: number
   mode: 'edit' | 'simulate' | 'preview'
-  selection: { row: number; col: number } | null
+  selection: { startRow: number; startCol: number; endRow: number; endCol: number } | null
+  selectGhost: { startRow: number; startCol: number; endRow: number; endCol: number } | null
+  dragGhost: {
+    sourceStartRow: number; sourceStartCol: number
+    sourceEndRow: number; sourceEndCol: number
+    anchorRow: number; anchorCol: number
+    currentRow: number; currentCol: number
+  } | null
   simulationPath: string[] | null
   simulationFloorA: number
   simulationRowA: number
@@ -346,14 +353,46 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
     }
   }
 
-  if (selection && inBounds(selection.row, selection.col, vb)) {
-    const sx = selection.col * tileSize
-    const sy = selection.row * tileSize
-    ctx.fillStyle = editorStyles.selectionFill
-    ctx.fillRect(sx, sy, tileSize, tileSize)
-    ctx.strokeStyle = editorStyles.selectionStroke
-    ctx.lineWidth = 2
-    ctx.strokeRect(sx, sy, tileSize, tileSize)
+  if (selection) {
+    const minR = Math.max(vb.rowStart, selection.startRow)
+    const maxR = Math.min(vb.rowEnd - 1, selection.endRow)
+    const minC = Math.max(vb.colStart, selection.startCol)
+    const maxC = Math.min(vb.colEnd - 1, selection.endCol)
+    if (minR <= maxR && minC <= maxC) {
+      const x = minC * tileSize
+      const y = minR * tileSize
+      const w = (maxC - minC + 1) * tileSize
+      const h = (maxR - minR + 1) * tileSize
+      ctx.fillStyle = editorStyles.selectionFill
+      ctx.fillRect(x, y, w, h)
+      ctx.strokeStyle = editorStyles.selectionStroke
+      ctx.lineWidth = 2
+      ctx.strokeRect(x, y, w, h)
+    }
+  }
+
+  if (state.selectGhost) {
+    const minR = Math.max(vb.rowStart, Math.min(state.selectGhost.startRow, state.selectGhost.endRow))
+    const maxR = Math.min(vb.rowEnd - 1, Math.max(state.selectGhost.startRow, state.selectGhost.endRow))
+    const minC = Math.max(vb.colStart, Math.min(state.selectGhost.startCol, state.selectGhost.endCol))
+    const maxC = Math.min(vb.colEnd - 1, Math.max(state.selectGhost.startCol, state.selectGhost.endCol))
+    if (minR <= maxR && minC <= maxC) {
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.15)'
+      for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+          ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize)
+        }
+      }
+      ctx.strokeStyle = 'rgba(99, 102, 241, 0.6)'
+      ctx.lineWidth = 2
+      ctx.setLineDash([6, 4])
+      const x = minC * tileSize
+      const y = minR * tileSize
+      const w = (maxC - minC + 1) * tileSize
+      const h = (maxR - minR + 1) * tileSize
+      ctx.strokeRect(x, y, w, h)
+      ctx.setLineDash([])
+    }
   }
 
   if (showGrid && tileSize >= GRID_THRESHOLD) {
@@ -420,6 +459,37 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
       ctx.setLineDash([6, 4])
       ctx.strokeRect(x, y, w, h)
       ctx.setLineDash([])
+    }
+  }
+
+  if (state.dragGhost) {
+    const { sourceStartRow, sourceStartCol, sourceEndRow, sourceEndCol, anchorRow, anchorCol, currentRow, currentCol } = state.dragGhost
+    const offsetRow = currentRow - anchorRow
+    const offsetCol = currentCol - anchorCol
+    const floor = state.map.floors.find((f) => f.floorIndex === state.activeFloor)
+    if (floor) {
+      ctx.globalAlpha = 0.6
+      for (let r = sourceStartRow; r <= sourceEndRow; r++) {
+        for (let c = sourceStartCol; c <= sourceEndCol; c++) {
+          const tr = r + offsetRow
+          const tc = c + offsetCol
+          if (tr < vb.rowStart || tr >= vb.rowEnd || tc < vb.colStart || tc >= vb.colEnd) continue
+          if (tr < 0 || tr >= floor.height || tc < 0 || tc >= floor.width) continue
+          const base = floor.base[r][c]
+          if (base) {
+            const style = tileStyles[base]
+            if (style) {
+              ctx.fillStyle = style.fill
+              ctx.fillRect(tc * tileSize, tr * tileSize, tileSize, tileSize)
+            }
+          }
+          const overlay = floor.overlay[r][c]
+          if (overlay) {
+            drawOverlay(ctx, tr, tc, overlay, tileSize)
+          }
+        }
+      }
+      ctx.globalAlpha = 1.0
     }
   }
 

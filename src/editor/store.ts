@@ -52,7 +52,7 @@ export interface EditorStore {
   activeTool: EditorTool
   lastTileTool: EditorTool
   activeTab: 'base' | 'overlay'
-  selection: { row: number; col: number } | null
+  selection: { startRow: number; startCol: number; endRow: number; endCol: number } | null
   mode: EditorMode
   straightMode: boolean
 
@@ -83,7 +83,8 @@ export interface EditorStore {
   paint: (row: number, col: number, skipHistory?: boolean) => void
   paintOverlay: (row: number, col: number, skipHistory?: boolean) => void
   erase: (row: number, col: number, skipHistory?: boolean) => void
-  setSelection: (sel: { row: number; col: number } | null) => void
+  setSelection: (sel: { startRow: number; startCol: number; endRow: number; endCol: number } | null) => void
+  pasteRegion: (sourceStartRow: number, sourceStartCol: number, sourceEndRow: number, sourceEndCol: number, offsetRow: number, offsetCol: number) => void
   setTileMeta: (row: number, col: number, meta: Partial<TileMeta>) => void
   setMode: (mode: EditorMode) => void
   setStraightMode: (v: boolean) => void
@@ -410,6 +411,54 @@ export const useStore = create<EditorStore>((set, get) => ({
 
   setSelection: (sel) => {
     set({ selection: sel })
+  },
+
+  pasteRegion: (sourceStartRow, sourceStartCol, sourceEndRow, sourceEndCol, offsetRow, offsetCol) => {
+    const { map, activeFloor } = get()
+    const floor = map.floors.find((f) => f.floorIndex === activeFloor)
+    if (!floor) return
+    if (offsetRow === 0 && offsetCol === 0) return
+
+    get().pushHistory()
+
+    const newFloors = map.floors.map((f) => {
+      if (f.floorIndex !== activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      const newMeta = { ...f.meta }
+      let hasRoom = false
+
+      for (let r = sourceStartRow; r <= sourceEndRow; r++) {
+        for (let c = sourceStartCol; c <= sourceEndCol; c++) {
+          const tr = r + offsetRow
+          const tc = c + offsetCol
+          if (tr < 0 || tr >= f.height || tc < 0 || tc >= f.width) continue
+
+          const srcBase = f.base[r][c]
+          if (srcBase) {
+            newBase[tr][tc] = srcBase
+          }
+          const srcOverlay = f.overlay[r][c]
+          if (srcOverlay) {
+            newOverlay[tr][tc] = srcOverlay
+            if (srcOverlay === 'room') {
+              hasRoom = true
+              if (!newMeta[`${tr},${tc}`]) {
+                newMeta[`${tr},${tc}`] = { label: '' }
+              }
+            }
+          }
+        }
+      }
+
+      let result = { ...f, base: newBase, overlay: newOverlay, meta: newMeta }
+      if (hasRoom) result = cleanupRoomMeta(result)
+      return result
+    })
+
+    const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
+    set({ map: newMap })
+    get().runValidation()
   },
 
   setTileMeta: (row, col, meta) => {
