@@ -148,7 +148,7 @@ function getInitialMap(): BuildingMap {
     updatedAt: now,
     floors: [createDefaultFloor(0, 'Ground Floor', 0)],
     defaultFloor: 0,
-    buildings: [{ id: 'building_0', name: 'Building A' }],
+    buildings: [{ id: 'building_0', name: 'Building 1' }],
   }
 }
 
