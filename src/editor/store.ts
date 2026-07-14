@@ -252,7 +252,7 @@ export const useStore = create<EditorStore>((set, get) => ({
       }
 
       const existingOverlay = f.overlay[row][col]
-      if (existingOverlay === 'room' && tile !== 'floor') {
+      if (existingOverlay === 'room') {
         const newOverlay = f.overlay.map((r) => [...r])
         newOverlay[row][col] = null
         const newMeta = { ...f.meta }
