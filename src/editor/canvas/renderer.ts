@@ -27,6 +27,7 @@ export interface RenderState {
   animHead: number
   showGrid: boolean
   straightGhost: { startRow: number; startCol: number; endRow: number; endCol: number } | null
+  rectGhost: { startRow: number; startCol: number; endRow: number; endCol: number } | null
   fillGhost: Array<{ row: number; col: number }> | null
   fillGhostFill: string
   isDark: boolean
@@ -392,6 +393,33 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
       const w = (Math.max(startCol, endCol) - Math.min(startCol, endCol) + 1) * tileSize
       const h = (Math.max(startRow, endRow) - Math.min(startRow, endRow) + 1) * tileSize
       ctx.strokeRect(x, y, w, h)
+    }
+  }
+
+  if (state.rectGhost) {
+    const { startRow, endRow, startCol, endCol } = state.rectGhost
+    const minRow = Math.max(vb.rowStart, Math.min(startRow, endRow))
+    const maxRow = Math.min(vb.rowEnd - 1, Math.max(startRow, endRow))
+    const minCol = Math.max(vb.colStart, Math.min(startCol, endCol))
+    const maxCol = Math.min(vb.colEnd - 1, Math.max(startCol, endCol))
+
+    if (minRow <= maxRow && minCol <= maxCol) {
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.2)'
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+          ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize)
+        }
+      }
+
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.9)'
+      ctx.lineWidth = 2
+      const x = Math.min(startCol, endCol) * tileSize
+      const y = Math.min(startRow, endRow) * tileSize
+      const w = (Math.max(startCol, endCol) - Math.min(startCol, endCol) + 1) * tileSize
+      const h = (Math.max(startRow, endRow) - Math.min(startRow, endRow) + 1) * tileSize
+      ctx.setLineDash([6, 4])
+      ctx.strokeRect(x, y, w, h)
+      ctx.setLineDash([])
     }
   }
 

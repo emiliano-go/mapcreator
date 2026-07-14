@@ -13,6 +13,10 @@ interface InteractionState {
     startRow: number; startCol: number
     endRow: number; endCol: number
   } | null
+  rectGhost: {
+    startRow: number; startCol: number
+    endRow: number; endCol: number
+  } | null
   fillGhost: Array<{ row: number; col: number }> | null
 }
 
@@ -23,6 +27,7 @@ const state: InteractionState = {
   isDrawing: false,
   isRightErase: false,
   straightGhost: null,
+  rectGhost: null,
   fillGhost: null,
 }
 
@@ -32,6 +37,10 @@ export function getStraightGhost() {
 
 export function getFillGhost() {
   return state.fillGhost
+}
+
+export function getRectGhost() {
+  return state.rectGhost
 }
 
 function getGridPos(
@@ -66,7 +75,7 @@ export function setupInteraction(
     const { offsetX, offsetY } = getOffset()
     const tileSize = getTileSize()
 
-    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+    if (e.button === 1) {
       state.isPanning = true
       state.lastPanX = e.clientX - offsetX
       state.lastPanY = e.clientY - offsetY
@@ -116,6 +125,12 @@ export function setupInteraction(
     }
 
     const tool = store.activeTool
+
+    if (e.shiftKey && tool !== 'select' && tool !== 'eyedrop' && tool !== 'fill' && tool !== 'fillRoom') {
+      state.rectGhost = { startRow: pos.row, startCol: pos.col, endRow: pos.row, endCol: pos.col }
+      state.isDrawing = true
+      return
+    }
 
     if (tool === 'select') {
       store.setSelection(pos)
@@ -331,6 +346,13 @@ export function setupInteraction(
       return
     }
 
+    if (state.rectGhost) {
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      if (!pos) return
+      state.rectGhost = { ...state.rectGhost, endRow: pos.row, endCol: pos.col }
+      return
+    }
+
     if (state.isDrawing) {
       const held = (e.buttons & 1) || (e.buttons & 2)
       if (!held) {
@@ -418,7 +440,49 @@ export function setupInteraction(
     }
   }
 
+  function paintRectFill(
+    store: ReturnType<typeof useStore.getState>,
+    startRow: number, startCol: number,
+    endRow: number, endCol: number,
+  ) {
+    const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
+    if (!floor) return
+
+    const minRow = Math.max(0, Math.min(startRow, endRow))
+    const maxRow = Math.min(floor.height - 1, Math.max(startRow, endRow))
+    const minCol = Math.max(0, Math.min(startCol, endCol))
+    const maxCol = Math.min(floor.width - 1, Math.max(startCol, endCol))
+
+    if (minRow === maxRow && minCol === maxCol) return
+
+    store.pushHistory()
+
+    const tool = store.activeTool
+    const isOverlay = tool === 'door' || tool === 'exit_door' || tool === 'room'
+
+    for (let r = minRow; r <= maxRow; r++) {
+      for (let c = minCol; c <= maxCol; c++) {
+        if (tool === 'eraser') {
+          store.erase(r, c, true)
+        } else if (isOverlay) {
+          store.paintOverlay(r, c, true)
+        } else {
+          store.paint(r, c, true)
+        }
+      }
+    }
+  }
+
   function handleMouseUp() {
+    if (state.rectGhost) {
+      const store = useStore.getState()
+      const { startRow, startCol, endRow, endCol } = state.rectGhost
+      state.rectGhost = null
+      state.isDrawing = false
+      paintRectFill(store, startRow, startCol, endRow, endCol)
+      return
+    }
+
     state.isPanning = false
     state.isDrawing = false
     state.isRightErase = false
@@ -526,6 +590,7 @@ export function setupInteraction(
     state.isDrawing = false
     state.isRightErase = false
     state.straightGhost = null
+    state.rectGhost = null
     state.fillGhost = null
     tooltip.classList.add('hidden')
   }
