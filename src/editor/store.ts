@@ -152,8 +152,10 @@ function getInitialMap(): BuildingMap {
   }
 }
 
+const _initialMap = getInitialMap()
+
 export const useStore = create<EditorStore>((set, get) => ({
-  map: getInitialMap(),
+  map: _initialMap,
   activeFloor: 0,
   activeTool: 'select',
   lastTileTool: 'wall',
@@ -177,8 +179,8 @@ export const useStore = create<EditorStore>((set, get) => ({
   simulationPaused: false,
   pendingFloor: null,
 
-  history: [],
-  historyIndex: -1,
+  history: [{ floors: _initialMap.floors.map(cloneMapFloor) }],
+  historyIndex: 0,
 
   validationErrors: [],
   isDark: document.documentElement.classList.contains('dark'),
@@ -228,8 +230,6 @@ export const useStore = create<EditorStore>((set, get) => ({
     if (!floor) return
 
     if (row < 0 || row >= floor.height || col < 0 || col >= floor.width) return
-
-    if (!skipHistory) get().pushHistory()
 
     const isStairsOrElevator = tile === 'stairs' || tile === 'elevator'
     const oldTile = floor.base[row]?.[col]
@@ -337,6 +337,7 @@ export const useStore = create<EditorStore>((set, get) => ({
     }
 
     set({ map: newMap })
+    if (!skipHistory) get().pushHistory()
     get().runValidation()
   },
 
@@ -360,8 +361,6 @@ export const useStore = create<EditorStore>((set, get) => ({
       if (baseType !== 'floor') return
     }
 
-    if (!skipHistory) get().pushHistory()
-
     const newFloors = map.floors.map((f) => {
       if (f.floorIndex !== activeFloor) return f
       const newOverlay = f.overlay.map((r) => [...r])
@@ -378,6 +377,7 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
     set({ map: newMap })
+    if (!skipHistory) get().pushHistory()
     get().runValidation()
   },
 
@@ -389,8 +389,6 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     const oldTile = floor.base[row]?.[col]
     const wasStairsOrElevator = oldTile === 'stairs' || oldTile === 'elevator'
-
-    if (!skipHistory) get().pushHistory()
 
     const newFloors = map.floors.map((f) => {
       if (f.floorIndex !== activeFloor) return f
@@ -408,6 +406,7 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
     set({ map: newMap })
+    if (!skipHistory) get().pushHistory()
     get().runValidation()
   },
 
@@ -420,8 +419,6 @@ export const useStore = create<EditorStore>((set, get) => ({
     const floor = map.floors.find((f) => f.floorIndex === activeFloor)
     if (!floor) return
     if (offsetRow === 0 && offsetCol === 0) return
-
-    get().pushHistory()
 
     const newFloors = map.floors.map((f) => {
       if (f.floorIndex !== activeFloor) return f
@@ -460,6 +457,7 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
     set({ map: newMap })
+    get().pushHistory()
     get().runValidation()
   },
 
@@ -468,8 +466,6 @@ export const useStore = create<EditorStore>((set, get) => ({
     if (!selection) return
     const floor = map.floors.find((f) => f.floorIndex === activeFloor)
     if (!floor) return
-
-    get().pushHistory()
 
     const { startRow, startCol, endRow, endCol } = selection
     const newFloors = map.floors.map((f) => {
@@ -503,6 +499,7 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
     set({ map: newMap })
+    get().pushHistory()
     get().runValidation()
   },
 
@@ -511,8 +508,6 @@ export const useStore = create<EditorStore>((set, get) => ({
     if (!selection) return
     const floor = map.floors.find((f) => f.floorIndex === activeFloor)
     if (!floor) return
-
-    get().pushHistory()
 
     const { startRow, startCol, endRow, endCol } = selection
     const newFloors = map.floors.map((f) => {
@@ -546,12 +541,12 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
     set({ map: newMap })
+    get().pushHistory()
     get().runValidation()
   },
 
   setTileMeta: (row, col, meta) => {
     const { map, activeFloor } = get()
-    get().pushHistory()
 
     const isConnMeta = 'toFloorSuperior' in meta || 'toFloorInferior' in meta || 'connectedFloors' in meta
 
@@ -695,8 +690,6 @@ export const useStore = create<EditorStore>((set, get) => ({
     const newIndex = maxIndex + 1
     const order = map.floors.length
 
-    get().pushHistory()
-
     const floor = createDefaultFloor(newIndex, label ?? `Floor ${newIndex + 1}`, order)
     set({
       map: {
@@ -706,6 +699,7 @@ export const useStore = create<EditorStore>((set, get) => ({
       },
       activeFloor: newIndex,
     })
+    get().pushHistory()
     get().runValidation()
   },
 
@@ -713,8 +707,6 @@ export const useStore = create<EditorStore>((set, get) => ({
     const { map } = get()
     const source = map.floors.find((f) => f.floorIndex === floorIndex)
     if (!source) return
-
-    get().pushHistory()
 
     const maxIndex = Math.max(...map.floors.map((f) => f.floorIndex), -1)
     const newIndex = maxIndex + 1
@@ -754,14 +746,13 @@ export const useStore = create<EditorStore>((set, get) => ({
       },
       activeFloor: newIndex,
     })
+    get().pushHistory()
     get().runValidation()
   },
 
   removeFloor: (floorIndex) => {
     const { map } = get()
     if (map.floors.length <= 1) return
-
-    get().pushHistory()
 
     const newFloors = map.floors.filter((f) => f.floorIndex !== floorIndex)
     const newMap = {
@@ -771,29 +762,30 @@ export const useStore = create<EditorStore>((set, get) => ({
       updatedAt: new Date().toISOString(),
     }
     set({ map: newMap, activeFloor: Math.min(get().activeFloor, newFloors.length - 1) })
+    get().pushHistory()
     get().runValidation()
   },
 
   renameFloor: (floorIndex, label) => {
     const { map } = get()
-    get().pushHistory()
 
     const newFloors = map.floors.map((f) =>
       f.floorIndex === floorIndex ? { ...f, label } : f,
     )
 
     set({ map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    get().pushHistory()
   },
 
   setFloorBuilding: (floorIndex, buildingId) => {
     const { map } = get()
-    get().pushHistory()
 
     const newFloors = map.floors.map((f) =>
       f.floorIndex === floorIndex ? { ...f, buildingId } : f,
     )
 
     set({ map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    get().pushHistory()
   },
 
   addBuilding: (name) => {
@@ -843,19 +835,17 @@ export const useStore = create<EditorStore>((set, get) => ({
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
     if (swapIdx < 0 || swapIdx >= floors.length) return
 
-    get().pushHistory()
-
     const temp = floors[idx]!
     floors[idx] = floors[swapIdx]!
     floors[swapIdx] = { ...temp, order: floors[swapIdx]!.order }
     floors[idx] = { ...floors[idx]!, order: temp.order }
 
     set({ map: { ...map, floors, updatedAt: new Date().toISOString() } })
+    get().pushHistory()
   },
 
   setFloorSize: (floorIndex, width, height) => {
     const { map } = get()
-    get().pushHistory()
 
     const newFloors = map.floors.map((f) => {
       if (f.floorIndex !== floorIndex) return f
@@ -884,6 +874,7 @@ export const useStore = create<EditorStore>((set, get) => ({
     })
 
     set({ map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    get().pushHistory()
     get().runValidation()
   },
 
@@ -965,14 +956,14 @@ export const useStore = create<EditorStore>((set, get) => ({
     }
   },
 
-  canUndo: () => get().historyIndex >= 0,
+  canUndo: () => get().historyIndex > 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
 
   undo: () => {
     const { historyIndex, history } = get()
-    if (historyIndex < 0) return
+    if (historyIndex <= 0) return
 
-    const entry = history[historyIndex]
+    const entry = history[historyIndex - 1]
     if (!entry) return
 
     const { map } = get()

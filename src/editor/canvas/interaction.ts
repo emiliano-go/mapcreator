@@ -238,11 +238,11 @@ export function setupInteraction(
         }
       }
 
-      store.pushHistory()
       const newFloors = map.floors.map((f) =>
         f.floorIndex === activeFloor ? { ...f, base: newBase, overlay: newOverlay } : f,
       )
       useStore.setState({ map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() } })
+      store.pushHistory()
       store.runValidation()
       return
     }
@@ -282,7 +282,6 @@ export function setupInteraction(
       }
 
       if (enclosed && visited.size > 0) {
-        store.pushHistory()
         for (const key of visited) {
           const [r, c] = key.split(',').map(Number)
           newOverlay[r!][c!] = 'room'
@@ -296,6 +295,7 @@ export function setupInteraction(
         useStore.setState({
           map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() },
         })
+        store.pushHistory()
         store.runValidation()
       }
       return
@@ -309,11 +309,11 @@ export function setupInteraction(
     state.isDrawing = true
 
     if (tool === 'eraser') {
-      store.erase(pos.row, pos.col)
+      store.erase(pos.row, pos.col, true)
     } else if (store.activeTab === 'base') {
-      store.paint(pos.row, pos.col)
+      store.paint(pos.row, pos.col, true)
     } else {
-      store.paintOverlay(pos.row, pos.col)
+      store.paintOverlay(pos.row, pos.col, true)
     }
   }
 
@@ -428,7 +428,6 @@ export function setupInteraction(
 
       if (state.isRightErase || store.activeTool === 'eraser') {
         if (state.isRightErase && store.activeTab === 'overlay' && floor.overlay[pos.row]?.[pos.col]) {
-          store.pushHistory()
           const newFloors = store.map.floors.map((f) => {
             if (f.floorIndex !== store.activeFloor) return f
             const newOverlay = f.overlay.map((r) => [...r])
@@ -440,12 +439,12 @@ export function setupInteraction(
           })
           store.runValidation()
         } else {
-          store.erase(pos.row, pos.col)
+          store.erase(pos.row, pos.col, true)
         }
       } else if (store.activeTab === 'base') {
-        store.paint(pos.row, pos.col)
+        store.paint(pos.row, pos.col, true)
       } else {
-        store.paintOverlay(pos.row, pos.col)
+        store.paintOverlay(pos.row, pos.col, true)
       }
       return
     }
@@ -484,7 +483,6 @@ export function setupInteraction(
     const dc = Math.sign(endCol - startCol)
     const steps = Math.max(Math.abs(endRow - startRow), Math.abs(endCol - startCol))
 
-    store.pushHistory()
     for (let i = 0; i <= steps; i++) {
       const r = startRow + dr * i
       const c = startCol + dc * i
@@ -498,6 +496,7 @@ export function setupInteraction(
         store.paintOverlay(r, c, true)
       }
     }
+    store.pushHistory()
   }
 
   function paintRectFill(
@@ -514,8 +513,6 @@ export function setupInteraction(
     const maxCol = Math.min(floor.width - 1, Math.max(startCol, endCol))
 
     if (minRow === maxRow && minCol === maxCol) return
-
-    store.pushHistory()
 
     const tool = store.activeTool
 
@@ -539,6 +536,7 @@ export function setupInteraction(
         }
       }
     }
+    store.pushHistory()
   }
 
   function handleMouseUp() {
@@ -578,6 +576,11 @@ export function setupInteraction(
     }
 
     state.isPanning = false
+
+    if (state.isDrawing) {
+      useStore.getState().pushHistory()
+    }
+
     state.isDrawing = false
     state.isRightErase = false
 
