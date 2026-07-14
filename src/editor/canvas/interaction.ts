@@ -126,7 +126,7 @@ export function setupInteraction(
 
     const tool = store.activeTool
 
-    if (e.shiftKey && tool !== 'select' && tool !== 'eyedrop' && tool !== 'fill' && tool !== 'fillRoom') {
+    if (e.shiftKey && (tool === 'wall' || tool === 'floor' || tool === 'void' || tool === 'dirt_path' || tool === 'room')) {
       state.rectGhost = { startRow: pos.row, startCol: pos.col, endRow: pos.row, endCol: pos.col }
       state.isDrawing = true
       return
@@ -458,15 +458,23 @@ export function setupInteraction(
     store.pushHistory()
 
     const tool = store.activeTool
-    const isOverlay = tool === 'door' || tool === 'exit_door' || tool === 'room'
 
-    for (let r = minRow; r <= maxRow; r++) {
-      for (let c = minCol; c <= maxCol; c++) {
-        if (tool === 'eraser') {
-          store.erase(r, c, true)
-        } else if (isOverlay) {
+    if (tool === 'wall') {
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+          const onBorder = r === minRow || r === maxRow || c === minCol || c === maxCol
+          if (onBorder) store.paint(r, c, true)
+        }
+      }
+    } else if (tool === 'room') {
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
           store.paintOverlay(r, c, true)
-        } else {
+        }
+      }
+    } else {
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
           store.paint(r, c, true)
         }
       }
