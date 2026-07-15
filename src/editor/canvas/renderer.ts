@@ -496,28 +496,32 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
   if (state.mode === 'simulate') {
     if (simulationPath && simulationPath.length > 0) {
       const pathNodesOnFloor = simulationPath
-        .map((id) => {
+        .map((id, idx) => {
           const parts = id.split(':')
-          return { floor: Number(parts[0]), row: Number(parts[1]), col: Number(parts[2]) }
+          return { idx, floor: Number(parts[0]), row: Number(parts[1]), col: Number(parts[2]) }
         })
         .filter((n) => n.floor === activeFloor &&
           n.row >= vb.rowStart && n.row < vb.rowEnd &&
           n.col >= vb.colStart && n.col < vb.colEnd)
 
-      for (let i = 0; i < pathNodesOnFloor.length; i++) {
-        const n = pathNodesOnFloor[i]!
+      for (const n of pathNodesOnFloor) {
         const x = n.col * tileSize
         const y = n.row * tileSize
-        ctx.fillStyle = i <= animHead ? editorStyles.pathHighlight : 'rgba(200,200,200,0.2)'
+        ctx.fillStyle = n.idx <= animHead ? editorStyles.pathHighlight : 'rgba(200,200,200,0.2)'
         ctx.fillRect(x, y, tileSize, tileSize)
       }
 
-      if (animHead >= 0 && animHead < pathNodesOnFloor.length) {
-        const head = pathNodesOnFloor[animHead]!
-        ctx.fillStyle = editorStyles.pathHead
-        ctx.beginPath()
-        ctx.arc(head.col * tileSize + tileSize / 2, head.row * tileSize + tileSize / 2, tileSize / 4, 0, Math.PI * 2)
-        ctx.fill()
+      if (animHead >= 0 && animHead < simulationPath.length) {
+        const parts = simulationPath[animHead]!.split(':')
+        const floor = Number(parts[0])
+        const row = Number(parts[1])
+        const col = Number(parts[2])
+        if (floor === activeFloor && inBounds(row, col, vb)) {
+          ctx.fillStyle = editorStyles.pathHead
+          ctx.beginPath()
+          ctx.arc(col * tileSize + tileSize / 2, row * tileSize + tileSize / 2, tileSize / 4, 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
     }
 

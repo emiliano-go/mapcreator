@@ -632,7 +632,7 @@ export const useStore = create<EditorStore>((set, get) => ({
 
   runSimulation: () => {
     const { map, simulationRoomA, simulationRoomB, simulationFloorA, simulationRowA, simulationColA, simulationFloorB, simulationRowB, simulationColB, simulationOptions } = get()
-    set({ simulationStatus: 'running' })
+    set({ simulationStatus: 'running', simulationPaused: false, pendingFloor: null })
 
     const fromDests: Array<{ floorIndex: number; row: number; col: number }> = simulationRoomA
       ? resolveDestination(map, simulationRoomA)

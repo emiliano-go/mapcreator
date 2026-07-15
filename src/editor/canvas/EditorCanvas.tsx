@@ -161,18 +161,33 @@ export default function EditorCanvas() {
           if (parts) {
             const curFloor = Number(parts[0])
             if (curFloor !== s.activeFloor) {
-              s.setActiveFloor(curFloor)
+              // After resume, head may be on old floor while activeFloor
+              // was already switched. Skip to first node on activeFloor.
+              let skip = headIdx
+              while (skip < path.length) {
+                const p = path[skip]?.split(':')
+                if (p && Number(p[0]) === s.activeFloor) break
+                skip++
+              }
+              if (skip < path.length && skip > headIdx) {
+                head = skip
+                animRef.current = skip
+              } else {
+                s.setActiveFloor(curFloor)
+              }
             }
           }
 
-          const nextIdx = headIdx + 1
+          const headIdx2 = Math.floor(head)
+          animRef.current = headIdx2
+          const nextIdx = headIdx2 + 1
           if (nextIdx < path.length) {
             const nextParts = path[nextIdx]?.split(':')
             if (nextParts) {
               const nextFloor = Number(nextParts[0])
               if (nextFloor !== s.activeFloor) {
-                head = headIdx
-                animRef.current = headIdx
+                head = headIdx2
+                animRef.current = headIdx2
                 s.setSimulationPaused(true, nextFloor)
               }
             }
