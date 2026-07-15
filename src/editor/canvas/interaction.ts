@@ -247,7 +247,7 @@ export function setupInteraction(
       return
     }
 
-      if (tool === 'fillRoom') {
+    if (tool === 'fillRoom') {
       const f = floor
       const bt = f.base[pos.row]?.[pos.col]
       if (bt !== 'floor') return
@@ -563,6 +563,12 @@ export function setupInteraction(
         sourceStartRow, sourceStartCol, sourceEndRow, sourceEndCol,
         currentRow - anchorRow, currentCol - anchorCol,
       )
+      store.setSelection({
+        startRow: sourceStartRow + currentRow - anchorRow,
+        endRow: sourceEndRow + currentRow - anchorRow,
+        startCol: sourceStartCol + currentCol - anchorCol,
+        endCol: sourceEndCol + currentCol - anchorCol,
+      });
       return
     }
 
@@ -633,7 +639,7 @@ export function setupInteraction(
         filename: `${data.map.name}.json`,
         data,
       }),
-    }).catch(() => {})
+    }).catch(() => { })
   }
 
   function handleKeyDown(e: KeyboardEvent) {
