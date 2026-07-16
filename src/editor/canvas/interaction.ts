@@ -1,6 +1,6 @@
 import { useStore } from '../store'
 import type { TileType, OverlayType } from '../../core/types'
-import { cleanupRoomMeta } from '../../core/roomRegions'
+import { cleanupRoomMeta, cleanupStairsElevatorMeta } from '../../core/roomRegions'
 import { matchKeybind } from '../../core/keybinds'
 
 interface ClipboardData {
@@ -524,21 +524,55 @@ export function setupInteraction(
     const dr = Math.sign(endRow - startRow)
     const dc = Math.sign(endCol - startCol)
     const steps = Math.max(Math.abs(endRow - startRow), Math.abs(endCol - startCol))
+    const tool = store.activeTool
 
-    for (let i = 0; i <= steps; i++) {
-      const r = startRow + dr * i
-      const c = startCol + dc * i
-      if (r < 0 || r >= floor.height || c < 0 || c >= floor.width) continue
-      const tool = store.activeTool
-      if (tool === 'eraser') {
-        store.erase(r, c, true)
-      } else if (store.activeTab === 'base') {
-        store.paint(r, c, true)
-      } else {
-        store.paintOverlay(r, c, true)
+    const newFloors = store.map.floors.map((f) => {
+      if (f.floorIndex !== store.activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      const newMeta = { ...f.meta }
+
+      for (let i = 0; i <= steps; i++) {
+        const r = startRow + dr * i
+        const c = startCol + dc * i
+        if (r < 0 || r >= f.height || c < 0 || c >= f.width) continue
+
+        if (tool === 'eraser' || tool === 'select' || tool === 'fill' || tool === 'eyedrop') {
+          newBase[r][c] = 'void'
+          newOverlay[r][c] = null
+          delete newMeta[`${r},${c}`]
+        } else if (store.activeTab === 'base') {
+          const tile = tool as TileType
+          newBase[r][c] = tile
+          const ov = newOverlay[r][c]
+          if (ov === 'room') {
+            newOverlay[r][c] = null
+            delete newMeta[`${r},${c}`]
+          } else if (ov === 'door' || ov === 'exit_door') {
+            newOverlay[r][c] = null
+          }
+        } else {
+          const overlay = tool as OverlayType
+          if (overlay === 'room' && newBase[r][c] !== 'floor') continue
+          if ((overlay === 'door' || overlay === 'exit_door') && newBase[r][c] !== 'wall') continue
+          newOverlay[r][c] = overlay
+          if (overlay === 'room') {
+            if (!newMeta[`${r},${c}`]) {
+              newMeta[`${r},${c}`] = { label: '' }
+            }
+          }
+        }
       }
-    }
+
+      let result = { ...f, base: newBase, overlay: newOverlay, meta: newMeta }
+      result = cleanupRoomMeta(result)
+      result = cleanupStairsElevatorMeta(result)
+      return result
+    })
+
+    useStore.setState({ map: { ...store.map, floors: newFloors, updatedAt: new Date().toISOString() } })
     store.pushHistory()
+    store.runValidation()
   }
 
   function paintRectFill(
@@ -557,28 +591,53 @@ export function setupInteraction(
     if (minRow === maxRow && minCol === maxCol) return
 
     const tool = store.activeTool
+    const tile = tool as TileType
 
-    if (tool === 'wall') {
+    const newFloors = store.map.floors.map((f) => {
+      if (f.floorIndex !== store.activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      const newMeta = { ...f.meta }
+      let hasRoom = false
+
       for (let r = minRow; r <= maxRow; r++) {
         for (let c = minCol; c <= maxCol; c++) {
-          const onBorder = r === minRow || r === maxRow || c === minCol || c === maxCol
-          if (onBorder) store.paint(r, c, true)
+          if (tool === 'wall') {
+            const onBorder = r === minRow || r === maxRow || c === minCol || c === maxCol
+            if (!onBorder) continue
+            newBase[r][c] = 'wall'
+            const ov = newOverlay[r][c]
+            if (ov === 'room') {
+              newOverlay[r][c] = null
+              delete newMeta[`${r},${c}`]
+            } else if (ov === 'exit_door') {
+              newOverlay[r][c] = null
+            }
+          } else if (tool === 'room') {
+            if (newBase[r][c] !== 'floor') continue
+            newOverlay[r][c] = 'room'
+            hasRoom = true
+          } else {
+            newBase[r][c] = tile
+            const ov = newOverlay[r][c]
+            if (ov === 'room' || ov === 'door' || ov === 'exit_door') {
+              newOverlay[r][c] = null
+              if (ov === 'room') {
+                delete newMeta[`${r},${c}`]
+              }
+            }
+          }
         }
       }
-    } else if (tool === 'room') {
-      for (let r = minRow; r <= maxRow; r++) {
-        for (let c = minCol; c <= maxCol; c++) {
-          store.paintOverlay(r, c, true)
-        }
-      }
-    } else {
-      for (let r = minRow; r <= maxRow; r++) {
-        for (let c = minCol; c <= maxCol; c++) {
-          store.paint(r, c, true)
-        }
-      }
-    }
+
+      let result = { ...f, base: newBase, overlay: newOverlay, meta: newMeta }
+      if (hasRoom || tool === 'room' || tool === 'void') result = cleanupRoomMeta(result)
+      return result
+    })
+
+    useStore.setState({ map: { ...store.map, floors: newFloors, updatedAt: new Date().toISOString() } })
     store.pushHistory()
+    store.runValidation()
   }
 
   function handleMouseUp() {
