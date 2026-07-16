@@ -146,7 +146,7 @@ export function setupInteraction(
 
     const tool = store.activeTool
 
-    if (e.shiftKey && (tool === 'wall' || tool === 'floor' || tool === 'void' || tool === 'dirt_path' || tool === 'room')) {
+    if (!store.straightMode && !e.shiftKey && (tool === 'wall' || tool === 'floor' || tool === 'void' || tool === 'dirt_path' || tool === 'room')) {
       state.rectGhost = { startRow: pos.row, startCol: pos.col, endRow: pos.row, endCol: pos.col }
       state.isDrawing = true
       return
