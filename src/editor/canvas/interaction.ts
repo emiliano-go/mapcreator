@@ -3,6 +3,13 @@ import type { TileType, OverlayType } from '../../core/types'
 import { cleanupRoomMeta } from '../../core/roomRegions'
 import { matchKeybind } from '../../core/keybinds'
 
+interface ClipboardData {
+  rows: number
+  cols: number
+  base: TileType[][]
+  overlay: OverlayType[][]
+}
+
 interface InteractionState {
   isPanning: boolean
   lastPanX: number
@@ -28,7 +35,18 @@ interface InteractionState {
     anchorRow: number; anchorCol: number
     currentRow: number; currentCol: number
   } | null
+  pasteGhost: {
+    currentRow: number
+    currentCol: number
+    rows: number
+    cols: number
+    base: TileType[][]
+    overlay: OverlayType[][]
+  } | null
 }
+
+let clipboard: ClipboardData | null = null
+let cutSourceBounds: { startRow: number; startCol: number; endRow: number; endCol: number } | null = null
 
 const state: InteractionState = {
   isPanning: false,
@@ -41,6 +59,7 @@ const state: InteractionState = {
   fillGhost: null,
   selectGhost: null,
   dragGhost: null,
+  pasteGhost: null,
 }
 
 export function getStraightGhost() {
@@ -61,6 +80,14 @@ export function getSelectGhost() {
 
 export function getDragGhost() {
   return state.dragGhost
+}
+
+export function getPasteGhost() {
+  return state.pasteGhost
+}
+
+export function getCutSourceBounds() {
+  return cutSourceBounds
 }
 
 function getGridPos(
@@ -128,6 +155,13 @@ export function setupInteraction(
       }
       state.isDrawing = true
       state.isRightErase = true
+      return
+    }
+
+    if (state.pasteGhost) {
+      if (e.button === 0) {
+        commitPaste()
+      }
       return
     }
 
@@ -413,6 +447,14 @@ export function setupInteraction(
       return
     }
 
+    if (state.pasteGhost) {
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      if (pos) {
+        state.pasteGhost = { ...state.pasteGhost, currentRow: pos.row, currentCol: pos.col }
+      }
+      return
+    }
+
     if (state.isDrawing) {
       const held = (e.buttons & 1) || (e.buttons & 2)
       if (!held) {
@@ -642,6 +684,63 @@ export function setupInteraction(
     }).catch(() => { })
   }
 
+  function commitPaste() {
+    if (!state.pasteGhost) return
+    const store = useStore.getState()
+    const { currentRow, currentCol, rows, cols, base, overlay } = state.pasteGhost
+    const cutBounds = cutSourceBounds
+    cutSourceBounds = null
+
+    const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
+    if (!floor) return
+
+    const newFloors = store.map.floors.map((f) => {
+      if (f.floorIndex !== store.activeFloor) return f
+      let newBase = f.base.map((r) => [...r])
+      let newOverlay = f.overlay.map((r) => [...r])
+      let hasRoom = false
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const tr = currentRow + r
+          const tc = currentCol + c
+          if (tr < 0 || tr >= f.height || tc < 0 || tc >= f.width) continue
+          newBase[tr][tc] = base[r][c]
+          if (overlay[r][c]) {
+            newOverlay[tr][tc] = overlay[r][c]
+            if (overlay[r][c] === 'room') hasRoom = true
+          }
+        }
+      }
+
+      if (cutBounds) {
+        for (let r = cutBounds.startRow; r <= cutBounds.endRow; r++) {
+          for (let c = cutBounds.startCol; c <= cutBounds.endCol; c++) {
+            if (r < 0 || r >= f.height || c < 0 || c >= f.width) continue
+            newBase[r][c] = 'floor'
+            newOverlay[r][c] = null
+          }
+        }
+        hasRoom = true
+      }
+
+      let result = { ...f, base: newBase, overlay: newOverlay }
+      if (hasRoom) result = cleanupRoomMeta(result)
+      return result
+    })
+
+    useStore.setState({ map: { ...store.map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    store.setSelection({
+      startRow: currentRow,
+      startCol: currentCol,
+      endRow: currentRow + rows - 1,
+      endCol: currentCol + cols - 1,
+    })
+    store.pushHistory()
+    store.runValidation()
+    state.pasteGhost = null
+  }
+
   function handleKeyDown(e: KeyboardEvent) {
     const store = useStore.getState()
 
@@ -651,6 +750,18 @@ export function setupInteraction(
         document.activeElement.tagName === 'TEXTAREA' ||
         document.activeElement.tagName === 'SELECT')
     ) {
+      return
+    }
+
+    if (e.key === 'Enter' && state.pasteGhost) {
+      e.preventDefault()
+      commitPaste()
+      return
+    }
+
+    if (e.key === 'Escape' && state.pasteGhost) {
+      state.pasteGhost = null
+      cutSourceBounds = null
       return
     }
 
@@ -681,6 +792,66 @@ export function setupInteraction(
       case 'mode-simulate': store.setMode('simulate'); break
       case 'mode-preview': store.setMode('preview'); break
       case 'add-floor': store.addFloor(); break
+      case 'cut': {
+        const sel = store.selection
+        if (!sel) break
+        const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
+        if (!floor) break
+        const { startRow, startCol, endRow, endCol } = sel
+        const rows = endRow - startRow + 1
+        const cols = endCol - startCol + 1
+        const base: TileType[][] = []
+        const overlay: OverlayType[][] = []
+        for (let r = startRow; r <= endRow; r++) {
+          const baseRow: TileType[] = []
+          const overlayRow: OverlayType[] = []
+          for (let c = startCol; c <= endCol; c++) {
+            baseRow.push(floor.base[r][c])
+            overlayRow.push(floor.overlay[r][c])
+          }
+          base.push(baseRow)
+          overlay.push(overlayRow)
+        }
+        clipboard = { rows, cols, base, overlay }
+        cutSourceBounds = { startRow, startCol, endRow, endCol }
+        state.pasteGhost = {
+          currentRow: 0, currentCol: 0,
+          rows, cols, base, overlay,
+        }
+        break
+      }
+      case 'copy': {
+        const sel = store.selection
+        if (!sel) break
+        const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
+        if (!floor) break
+        const { startRow, startCol, endRow, endCol } = sel
+        const rows = endRow - startRow + 1
+        const cols = endCol - startCol + 1
+        const base: TileType[][] = []
+        const overlay: OverlayType[][] = []
+        for (let r = startRow; r <= endRow; r++) {
+          const baseRow: TileType[] = []
+          const overlayRow: OverlayType[] = []
+          for (let c = startCol; c <= endCol; c++) {
+            baseRow.push(floor.base[r][c])
+            overlayRow.push(floor.overlay[r][c])
+          }
+          base.push(baseRow)
+          overlay.push(overlayRow)
+        }
+        clipboard = { rows, cols, base, overlay }
+        cutSourceBounds = null
+        break
+      };
+      case 'paste': {
+        if (!clipboard) break
+        state.pasteGhost = {
+          currentRow: 0, currentCol: 0,
+          ...clipboard,
+        }
+        break
+      }
     }
   }
 
@@ -695,6 +866,8 @@ export function setupInteraction(
     state.straightGhost = null
     state.rectGhost = null
     state.fillGhost = null
+    state.pasteGhost = null
+    cutSourceBounds = null
     tooltip.classList.add('hidden')
   }
 

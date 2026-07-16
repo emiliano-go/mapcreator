@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import { renderFrame, type RenderState, type GhostGroupInfo } from './renderer'
 import { getAllDestinations, OverlayGroup, findRoomRegions, findOverlayGroups } from '../../core/roomRegions'
 import type { RoomRegion, BuildingMap, MapFloor } from '../../core/types'
-import { setupInteraction, getStraightGhost, getFillGhost, getRectGhost, getSelectGhost, getDragGhost } from './interaction'
+import { setupInteraction, getStraightGhost, getFillGhost, getRectGhost, getSelectGhost, getDragGhost, getPasteGhost, getCutSourceBounds } from './interaction'
 import { getTileStyles } from '../../theme/tileStyles'
 
 function findStairElevatorGroups(floor: MapFloor): GhostGroupInfo[] {
@@ -282,6 +282,8 @@ export default function EditorCanvas() {
         fillGhost: getFillGhost(),
         selectGhost: getSelectGhost(),
         dragGhost: getDragGhost(),
+        pasteGhost: getPasteGhost(),
+        cutSourceBounds: getCutSourceBounds(),
         fillGhostFill: (() => {
           const lt = s.lastTileTool
           if (lt && lt !== 'fill' && lt !== 'eraser' && lt !== 'select' && lt !== 'eyedrop' && lt !== 'fillRoom') {

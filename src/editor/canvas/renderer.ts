@@ -24,6 +24,15 @@ export interface RenderState {
     anchorRow: number; anchorCol: number
     currentRow: number; currentCol: number
   } | null
+  pasteGhost: {
+    currentRow: number
+    currentCol: number
+    rows: number
+    cols: number
+    base: TileType[][]
+    overlay: OverlayType[][]
+  } | null
+  cutSourceBounds: { startRow: number; startCol: number; endRow: number; endCol: number } | null
   simulationPath: string[] | null
   simulationFloorA: number
   simulationRowA: number
@@ -371,6 +380,24 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
     }
   }
 
+  if (state.cutSourceBounds) {
+    const minR = Math.max(vb.rowStart, state.cutSourceBounds.startRow)
+    const maxR = Math.min(vb.rowEnd - 1, state.cutSourceBounds.endRow)
+    const minC = Math.max(vb.colStart, state.cutSourceBounds.startCol)
+    const maxC = Math.min(vb.colEnd - 1, state.cutSourceBounds.endCol)
+    if (minR <= maxR && minC <= maxC) {
+      const x = minC * tileSize
+      const y = minR * tileSize
+      const w = (maxC - minC + 1) * tileSize
+      const h = (maxR - minR + 1) * tileSize
+      ctx.fillStyle = 'rgba(50, 120, 50, 0.2)'
+      ctx.fillRect(x, y, w, h)
+      ctx.strokeStyle = 'rgba(50, 220, 50, 0.7)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(x, y, w, h)
+    }
+  }
+
   if (state.selectGhost) {
     const minR = Math.max(vb.rowStart, Math.min(state.selectGhost.startRow, state.selectGhost.endRow))
     const maxR = Math.min(vb.rowEnd - 1, Math.max(state.selectGhost.startRow, state.selectGhost.endRow))
@@ -486,6 +513,35 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
           const overlay = floor.overlay[r][c]
           if (overlay) {
             drawOverlay(ctx, tr, tc, overlay, tileSize)
+          }
+        }
+      }
+      ctx.globalAlpha = 1.0
+    }
+  }
+
+  if (state.pasteGhost) {
+    const { currentRow, currentCol, rows, cols, base, overlay } = state.pasteGhost
+    const floor = state.map.floors.find((f) => f.floorIndex === state.activeFloor)
+    if (floor) {
+      ctx.globalAlpha = 0.6
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const tr = currentRow + r
+          const tc = currentCol + c
+          if (tr < vb.rowStart || tr >= vb.rowEnd || tc < vb.colStart || tc >= vb.colEnd) continue
+          if (tr < 0 || tr >= floor.height || tc < 0 || tc >= floor.width) continue
+          const bt = base[r][c]
+          if (bt) {
+            const style = tileStyles[bt]
+            if (style) {
+              ctx.fillStyle = style.fill
+              ctx.fillRect(tc * tileSize, tr * tileSize, tileSize, tileSize)
+            }
+          }
+          const ov = overlay[r][c]
+          if (ov) {
+            drawOverlay(ctx, tr, tc, ov, tileSize)
           }
         }
       }
