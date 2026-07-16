@@ -108,6 +108,7 @@ export default function EditorCanvas() {
     let lastDestsMap: BuildingMap | null = null
     let cachedExitGroups: { floorIdx: number; groups: OverlayGroup[] } | null = null
     let cachedDoorGroups: { floorIdx: number; groups: OverlayGroup[] } | null = null
+    let lastMap: BuildingMap | null = null
 
     function computeGhostGroups(
       s: ReturnType<typeof useStore.getState>,
@@ -202,6 +203,13 @@ export default function EditorCanvas() {
       }
 
       const curFloor = s.map.floors.find((f) => f.floorIndex === s.activeFloor)
+
+      if (s.map !== lastMap) {
+        cachedFloorRegions = null
+        cachedExitGroups = null
+        cachedDoorGroups = null
+        lastMap = s.map
+      }
 
       let regions: RoomRegion[] | undefined
       if (curFloor) {
