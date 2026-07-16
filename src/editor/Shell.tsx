@@ -41,7 +41,7 @@ export default function Shell() {
       <MenuBar />
       <FloorTabs />
       <div className="flex-1 flex overflow-hidden">
-        {mode !== 'preview' && <ToolPalette />}
+        {mode === 'edit' && <ToolPalette />}
         <div className="flex-1 relative">
           <EditorCanvas />
         </div>

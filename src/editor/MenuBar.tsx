@@ -98,13 +98,13 @@ export default function MenuBar() {
         <div className="border-l border-border h-4 mx-1" />
 
         <div className="flex rounded-lg overflow-hidden border border-border bg-deep-800">
-          {(['edit', 'simulate', 'preview'] as const).map((m) => {
+          {(['edit', 'simulate'] as const).map((m) => {
             const isActive = mode === m
             const isDisabled = m !== 'edit' && hasErrors
             const modeKeys: Record<string, string> = {
               edit: formatKeys(getKeys('mode-edit')),
               simulate: formatKeys(getKeys('mode-simulate')),
-              preview: formatKeys(getKeys('mode-preview')),
+              // preview: formatKeys(getKeys('mode-preview')),
             }
             return (
               <button

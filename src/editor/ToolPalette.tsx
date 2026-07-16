@@ -39,12 +39,18 @@ const actionTools: Array<{ tool: EditorTool; label: string; id: string }> = [
 
 export default function ToolPalette() {
   const activeTool = useStore((s) => s.activeTool)
-  const activeTab = useStore((s) => s.activeTab)
   const straightMode = useStore((s) => s.straightMode)
+  const selection = useStore((s) => s.selection)
   const setActiveTool = useStore((s) => s.setActiveTool)
-  const setActiveTab = useStore((s) => s.setActiveTab)
   const setStraightMode = useStore((s) => s.setStraightMode)
+  const flipSelectionHorizontal = useStore((s) => s.flipSelectionHorizontal)
+  const flipSelectionVertical = useStore((s) => s.flipSelectionVertical)
   const tileStyles = getTileStyles(useStore((s) => s.isDark))
+
+  const selectionSize = {
+    horizontal: selection && Math.abs(selection?.startRow - selection?.endRow) || 0,
+    vertical: selection && Math.abs(selection?.startCol - selection?.endCol) || 0,
+  }
 
   return (
     <div className="flex flex-col gap-0.5 p-2 bg-surface border-r border-border w-44 overflow-y-auto">
@@ -78,35 +84,58 @@ export default function ToolPalette() {
         )
       })}
 
+      {(selection && (selectionSize.horizontal >= 1 || selectionSize.vertical >= 1)) && (
+        <>
+          <div className="border-t border-border my-1.5" />
+          <div className="text-[10px] text-text-tertiary uppercase tracking-widest font-medium mb-1 px-1">Selection</div>
+          <button
+            onClick={flipSelectionHorizontal}
+            className="text-left px-2.5 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+            title="Flip selection horizontally"
+          >
+            ↔ Flip Horizontal
+          </button>
+          <button
+            onClick={flipSelectionVertical}
+            className="text-left px-2.5 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+            title="Flip selection vertically"
+          >
+            ↕ Flip Vertical
+          </button>
+        </>
+      )}
+
       <div className="border-t border-border my-1.5" />
 
-      <div className="flex gap-1 mb-1">
-        <button
-          onClick={() => setActiveTab('base')}
-          className={`flex-1 text-[11px] px-2 py-1.5 rounded-lg transition-all duration-150 cursor-pointer font-medium ${
-            activeTab === 'base' ? 'bg-accent text-white shadow-sm shadow-accent/15' : 'bg-deep-700 text-text-tertiary hover:text-text-primary hover:bg-deep-600'
-          }`}
-        >
-          Base
-        </button>
-        <button
-          onClick={() => setActiveTab('overlay')}
-          className={`flex-1 text-[11px] px-2 py-1.5 rounded-lg transition-all duration-150 cursor-pointer font-medium ${
-            activeTab === 'overlay' ? 'bg-accent text-white shadow-sm shadow-accent/15' : 'bg-deep-700 text-text-tertiary hover:text-text-primary hover:bg-deep-600'
-          }`}
-        >
-          Overlay
-        </button>
-      </div>
+      <div className="text-[10px] text-text-tertiary uppercase tracking-widest font-medium mb-1 px-1">Base</div>
+      {baseTools.map(({ tool, label, id }) => {
+        const style = tileStyles[tool as TileType]
+        const keys = toolKeys(id)
 
-      <div className="text-[10px] text-text-tertiary uppercase tracking-widest font-medium mb-1 px-1">
-        {activeTab === 'base' ? 'Base' : 'Overlay'}
-      </div>
+        return (
+          <button
+            key={tool}
+            onClick={() => setActiveTool(tool)}
+            className={`text-left px-2.5 py-1.5 rounded-lg text-sm transition-all duration-150 cursor-pointer ${
+              activeTool === tool ? 'bg-surface-hover text-text-primary ring-1 ring-accent/40' : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
+            }`}
+            title={keys || label}
+          >
+            <span
+              className="inline-block w-3 h-3 rounded mr-2 align-middle"
+              style={{ backgroundColor: style?.fill, border: `1px solid ${style?.stroke}` }}
+            />
+            {label}
+            {keys && <span className="float-right text-text-tertiary text-[10px] mt-0.5">{keys}</span>}
+          </button>
+        )
+      })}
 
-      {(activeTab === 'base' ? baseTools : overlayTools).map(({ tool, label, id }) => {
-        const style = activeTab === 'base'
-          ? tileStyles[tool as TileType]
-          : overlayStyles[tool as Exclude<OverlayType, null>]
+      <div className="border-t border-border my-1.5" />
+
+      <div className="text-[10px] text-text-tertiary uppercase tracking-widest font-medium mb-1 px-1">Overlay</div>
+      {overlayTools.map(({ tool, label, id }) => {
+        const style = overlayStyles[tool as Exclude<OverlayType, null>]
         const keys = toolKeys(id)
 
         return (

@@ -16,7 +16,23 @@ export interface RenderState {
   offsetX: number
   offsetY: number
   mode: 'edit' | 'simulate' | 'preview'
-  selection: { row: number; col: number } | null
+  selection: { startRow: number; startCol: number; endRow: number; endCol: number } | null
+  selectGhost: { startRow: number; startCol: number; endRow: number; endCol: number } | null
+  dragGhost: {
+    sourceStartRow: number; sourceStartCol: number
+    sourceEndRow: number; sourceEndCol: number
+    anchorRow: number; anchorCol: number
+    currentRow: number; currentCol: number
+  } | null
+  pasteGhost: {
+    currentRow: number
+    currentCol: number
+    rows: number
+    cols: number
+    base: TileType[][]
+    overlay: OverlayType[][]
+  } | null
+  cutSourceBounds: { startRow: number; startCol: number; endRow: number; endCol: number } | null
   simulationPath: string[] | null
   simulationFloorA: number
   simulationRowA: number
@@ -27,6 +43,7 @@ export interface RenderState {
   animHead: number
   showGrid: boolean
   straightGhost: { startRow: number; startCol: number; endRow: number; endCol: number } | null
+  rectGhost: { startRow: number; startCol: number; endRow: number; endCol: number } | null
   fillGhost: Array<{ row: number; col: number }> | null
   fillGhostFill: string
   isDark: boolean
@@ -345,14 +362,64 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
     }
   }
 
-  if (selection && inBounds(selection.row, selection.col, vb)) {
-    const sx = selection.col * tileSize
-    const sy = selection.row * tileSize
-    ctx.fillStyle = editorStyles.selectionFill
-    ctx.fillRect(sx, sy, tileSize, tileSize)
-    ctx.strokeStyle = editorStyles.selectionStroke
-    ctx.lineWidth = 2
-    ctx.strokeRect(sx, sy, tileSize, tileSize)
+  if (selection) {
+    const minR = Math.max(vb.rowStart, selection.startRow)
+    const maxR = Math.min(vb.rowEnd - 1, selection.endRow)
+    const minC = Math.max(vb.colStart, selection.startCol)
+    const maxC = Math.min(vb.colEnd - 1, selection.endCol)
+    if (minR <= maxR && minC <= maxC) {
+      const x = minC * tileSize
+      const y = minR * tileSize
+      const w = (maxC - minC + 1) * tileSize
+      const h = (maxR - minR + 1) * tileSize
+      ctx.fillStyle = editorStyles.selectionFill
+      ctx.fillRect(x, y, w, h)
+      ctx.strokeStyle = editorStyles.selectionStroke
+      ctx.lineWidth = 2
+      ctx.strokeRect(x, y, w, h)
+    }
+  }
+
+  if (state.cutSourceBounds) {
+    const minR = Math.max(vb.rowStart, state.cutSourceBounds.startRow)
+    const maxR = Math.min(vb.rowEnd - 1, state.cutSourceBounds.endRow)
+    const minC = Math.max(vb.colStart, state.cutSourceBounds.startCol)
+    const maxC = Math.min(vb.colEnd - 1, state.cutSourceBounds.endCol)
+    if (minR <= maxR && minC <= maxC) {
+      const x = minC * tileSize
+      const y = minR * tileSize
+      const w = (maxC - minC + 1) * tileSize
+      const h = (maxR - minR + 1) * tileSize
+      ctx.fillStyle = 'rgba(50, 120, 50, 0.2)'
+      ctx.fillRect(x, y, w, h)
+      ctx.strokeStyle = 'rgba(50, 220, 50, 0.7)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(x, y, w, h)
+    }
+  }
+
+  if (state.selectGhost) {
+    const minR = Math.max(vb.rowStart, Math.min(state.selectGhost.startRow, state.selectGhost.endRow))
+    const maxR = Math.min(vb.rowEnd - 1, Math.max(state.selectGhost.startRow, state.selectGhost.endRow))
+    const minC = Math.max(vb.colStart, Math.min(state.selectGhost.startCol, state.selectGhost.endCol))
+    const maxC = Math.min(vb.colEnd - 1, Math.max(state.selectGhost.startCol, state.selectGhost.endCol))
+    if (minR <= maxR && minC <= maxC) {
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.15)'
+      for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+          ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize)
+        }
+      }
+      ctx.strokeStyle = 'rgba(99, 102, 241, 0.6)'
+      ctx.lineWidth = 2
+      ctx.setLineDash([6, 4])
+      const x = minC * tileSize
+      const y = minR * tileSize
+      const w = (maxC - minC + 1) * tileSize
+      const h = (maxR - minR + 1) * tileSize
+      ctx.strokeRect(x, y, w, h)
+      ctx.setLineDash([])
+    }
   }
 
   if (showGrid && tileSize >= GRID_THRESHOLD) {
@@ -395,31 +462,122 @@ export function renderFrame(ctx: CanvasRenderingContext2D, state: RenderState) {
     }
   }
 
+  if (state.rectGhost) {
+    const { startRow, endRow, startCol, endCol } = state.rectGhost
+    const minRow = Math.max(vb.rowStart, Math.min(startRow, endRow))
+    const maxRow = Math.min(vb.rowEnd - 1, Math.max(startRow, endRow))
+    const minCol = Math.max(vb.colStart, Math.min(startCol, endCol))
+    const maxCol = Math.min(vb.colEnd - 1, Math.max(startCol, endCol))
+
+    if (minRow <= maxRow && minCol <= maxCol) {
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.2)'
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+          ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize)
+        }
+      }
+
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.9)'
+      ctx.lineWidth = 2
+      const x = Math.min(startCol, endCol) * tileSize
+      const y = Math.min(startRow, endRow) * tileSize
+      const w = (Math.max(startCol, endCol) - Math.min(startCol, endCol) + 1) * tileSize
+      const h = (Math.max(startRow, endRow) - Math.min(startRow, endRow) + 1) * tileSize
+      ctx.setLineDash([6, 4])
+      ctx.strokeRect(x, y, w, h)
+      ctx.setLineDash([])
+    }
+  }
+
+  if (state.dragGhost) {
+    const { sourceStartRow, sourceStartCol, sourceEndRow, sourceEndCol, anchorRow, anchorCol, currentRow, currentCol } = state.dragGhost
+    const offsetRow = currentRow - anchorRow
+    const offsetCol = currentCol - anchorCol
+    const floor = state.map.floors.find((f) => f.floorIndex === state.activeFloor)
+    if (floor) {
+      ctx.globalAlpha = 0.6
+      for (let r = sourceStartRow; r <= sourceEndRow; r++) {
+        for (let c = sourceStartCol; c <= sourceEndCol; c++) {
+          const tr = r + offsetRow
+          const tc = c + offsetCol
+          if (tr < vb.rowStart || tr >= vb.rowEnd || tc < vb.colStart || tc >= vb.colEnd) continue
+          if (tr < 0 || tr >= floor.height || tc < 0 || tc >= floor.width) continue
+          const base = floor.base[r][c]
+          if (base) {
+            const style = tileStyles[base]
+            if (style) {
+              ctx.fillStyle = style.fill
+              ctx.fillRect(tc * tileSize, tr * tileSize, tileSize, tileSize)
+            }
+          }
+          const overlay = floor.overlay[r][c]
+          if (overlay) {
+            drawOverlay(ctx, tr, tc, overlay, tileSize)
+          }
+        }
+      }
+      ctx.globalAlpha = 1.0
+    }
+  }
+
+  if (state.pasteGhost) {
+    const { currentRow, currentCol, rows, cols, base, overlay } = state.pasteGhost
+    const floor = state.map.floors.find((f) => f.floorIndex === state.activeFloor)
+    if (floor) {
+      ctx.globalAlpha = 0.6
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const tr = currentRow + r
+          const tc = currentCol + c
+          if (tr < vb.rowStart || tr >= vb.rowEnd || tc < vb.colStart || tc >= vb.colEnd) continue
+          if (tr < 0 || tr >= floor.height || tc < 0 || tc >= floor.width) continue
+          const bt = base[r][c]
+          if (bt) {
+            const style = tileStyles[bt]
+            if (style) {
+              ctx.fillStyle = style.fill
+              ctx.fillRect(tc * tileSize, tr * tileSize, tileSize, tileSize)
+            }
+          }
+          const ov = overlay[r][c]
+          if (ov) {
+            drawOverlay(ctx, tr, tc, ov, tileSize)
+          }
+        }
+      }
+      ctx.globalAlpha = 1.0
+    }
+  }
+
   if (state.mode === 'simulate') {
     if (simulationPath && simulationPath.length > 0) {
       const pathNodesOnFloor = simulationPath
-        .map((id) => {
+        .map((id, idx) => {
           const parts = id.split(':')
-          return { floor: Number(parts[0]), row: Number(parts[1]), col: Number(parts[2]) }
+          return { idx, floor: Number(parts[0]), row: Number(parts[1]), col: Number(parts[2]) }
         })
         .filter((n) => n.floor === activeFloor &&
           n.row >= vb.rowStart && n.row < vb.rowEnd &&
           n.col >= vb.colStart && n.col < vb.colEnd)
 
-      for (let i = 0; i < pathNodesOnFloor.length; i++) {
-        const n = pathNodesOnFloor[i]!
+      for (const n of pathNodesOnFloor) {
         const x = n.col * tileSize
         const y = n.row * tileSize
-        ctx.fillStyle = i <= animHead ? editorStyles.pathHighlight : 'rgba(200,200,200,0.2)'
+        ctx.fillStyle = n.idx <= animHead ? editorStyles.pathHighlight : 'rgba(200,200,200,0.2)'
         ctx.fillRect(x, y, tileSize, tileSize)
       }
 
-      if (animHead >= 0 && animHead < pathNodesOnFloor.length) {
-        const head = pathNodesOnFloor[animHead]!
-        ctx.fillStyle = editorStyles.pathHead
-        ctx.beginPath()
-        ctx.arc(head.col * tileSize + tileSize / 2, head.row * tileSize + tileSize / 2, tileSize / 4, 0, Math.PI * 2)
-        ctx.fill()
+      if (animHead >= 0 && animHead < simulationPath.length) {
+        const parts = simulationPath[animHead]!.split(':')
+        const floor = Number(parts[0])
+        const row = Number(parts[1])
+        const col = Number(parts[2])
+        if (floor === activeFloor && inBounds(row, col, vb)) {
+          ctx.fillStyle = editorStyles.pathHead
+          ctx.beginPath()
+          ctx.arc(col * tileSize + tileSize / 2, row * tileSize + tileSize / 2, tileSize / 4, 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
     }
 

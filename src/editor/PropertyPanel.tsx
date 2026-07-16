@@ -23,19 +23,21 @@ export default function PropertyPanel() {
 
   const noSelection = !selection || !currentFloor
 
+  const selAnchor = selection ? { row: selection.startRow, col: selection.startCol } : null
+
   const roomInfo = useMemo(() => {
-    if (!selection || !currentFloor) return null
-    const overlayType = currentFloor.overlay[selection.row]?.[selection.col] as OverlayType | undefined
+    if (!selAnchor || !currentFloor) return null
+    const overlayType = currentFloor.overlay[selAnchor.row]?.[selAnchor.col] as OverlayType | undefined
     if (overlayType !== 'room') return null
     const regions = findRoomRegions(currentFloor)
-    const region = regions.find((r) => r.tiles.some((t) => t.row === selection.row && t.col === selection.col)) ?? null
+    const region = regions.find((r) => r.tiles.some((t) => t.row === selAnchor.row && t.col === selAnchor.col)) ?? null
     if (!region) return null
     return {
       region,
-      isAnchor: region.anchor.row === selection.row && region.anchor.col === selection.col,
+      isAnchor: region.anchor.row === selAnchor.row && region.anchor.col === selAnchor.col,
       doorCount: getRoomDoors(map, region).length,
     }
-  }, [map, activeFloor, selection])
+  }, [map, activeFloor, selAnchor])
 
   if (noSelection || !currentFloor) {
     return (
@@ -134,7 +136,7 @@ export default function PropertyPanel() {
     )
   }
 
-  const { row, col } = selection!
+  const { startRow: row, startCol: col } = selection!
   const floor = currentFloor
   const baseType = floor.base[row]?.[col] as TileType | undefined
   const overlayType = floor.overlay[row]?.[col] as OverlayType | undefined

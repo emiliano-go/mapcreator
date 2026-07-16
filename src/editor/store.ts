@@ -52,7 +52,7 @@ export interface EditorStore {
   activeTool: EditorTool
   lastTileTool: EditorTool
   activeTab: 'base' | 'overlay'
-  selection: { row: number; col: number } | null
+  selection: { startRow: number; startCol: number; endRow: number; endCol: number } | null
   mode: EditorMode
   straightMode: boolean
 
@@ -83,7 +83,10 @@ export interface EditorStore {
   paint: (row: number, col: number, skipHistory?: boolean) => void
   paintOverlay: (row: number, col: number, skipHistory?: boolean) => void
   erase: (row: number, col: number, skipHistory?: boolean) => void
-  setSelection: (sel: { row: number; col: number } | null) => void
+  setSelection: (sel: { startRow: number; startCol: number; endRow: number; endCol: number } | null) => void
+  pasteRegion: (sourceStartRow: number, sourceStartCol: number, sourceEndRow: number, sourceEndCol: number, offsetRow: number, offsetCol: number) => void
+  flipSelectionHorizontal: () => void
+  flipSelectionVertical: () => void
   setTileMeta: (row: number, col: number, meta: Partial<TileMeta>) => void
   setMode: (mode: EditorMode) => void
   setStraightMode: (v: boolean) => void
@@ -135,7 +138,31 @@ export interface EditorStore {
   toggleTheme: () => void
 }
 
-function getInitialMap(): BuildingMap {
+const STORAGE_KEY = 'mapcreator-map'
+
+function loadMapFromStorage(): BuildingMap | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.floors) && parsed.floors.length > 0) {
+      return parsed as BuildingMap
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function saveMapToStorage(map: BuildingMap): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+  } catch {
+    // storage full or unavailable
+  }
+}
+
+function createInitialMap(): BuildingMap {
   const now = new Date().toISOString()
   return {
     id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
@@ -145,13 +172,16 @@ function getInitialMap(): BuildingMap {
     updatedAt: now,
     floors: [createDefaultFloor(0, 'Ground Floor', 0)],
     defaultFloor: 0,
-    buildings: [{ id: 'building_0', name: 'Building A' }],
+    buildings: [{ id: 'building_0', name: 'Building 1' }],
   }
 }
 
+const _initialMap = loadMapFromStorage() ?? createInitialMap()
+const _initialActiveFloor = _initialMap.floors.some((f) => f.floorIndex === 0) ? 0 : _initialMap.floors[0]!.floorIndex
+
 export const useStore = create<EditorStore>((set, get) => ({
-  map: getInitialMap(),
-  activeFloor: 0,
+  map: _initialMap,
+  activeFloor: _initialActiveFloor,
   activeTool: 'select',
   lastTileTool: 'wall',
   activeTab: 'base',
@@ -174,8 +204,8 @@ export const useStore = create<EditorStore>((set, get) => ({
   simulationPaused: false,
   pendingFloor: null,
 
-  history: [],
-  historyIndex: -1,
+  history: [{ floors: _initialMap.floors.map(cloneMapFloor) }],
+  historyIndex: 0,
 
   validationErrors: [],
   isDark: document.documentElement.classList.contains('dark'),
@@ -226,8 +256,6 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     if (row < 0 || row >= floor.height || col < 0 || col >= floor.width) return
 
-    if (!skipHistory) get().pushHistory()
-
     const isStairsOrElevator = tile === 'stairs' || tile === 'elevator'
     const oldTile = floor.base[row]?.[col]
     const wasStairsOrElevator = oldTile === 'stairs' || oldTile === 'elevator'
@@ -249,7 +277,7 @@ export const useStore = create<EditorStore>((set, get) => ({
       }
 
       const existingOverlay = f.overlay[row][col]
-      if (existingOverlay === 'room' && tile !== 'floor') {
+      if (existingOverlay === 'room') {
         const newOverlay = f.overlay.map((r) => [...r])
         newOverlay[row][col] = null
         const newMeta = { ...f.meta }
@@ -334,6 +362,7 @@ export const useStore = create<EditorStore>((set, get) => ({
     }
 
     set({ map: newMap })
+    if (!skipHistory) get().pushHistory()
     get().runValidation()
   },
 
@@ -357,8 +386,6 @@ export const useStore = create<EditorStore>((set, get) => ({
       if (baseType !== 'floor') return
     }
 
-    if (!skipHistory) get().pushHistory()
-
     const newFloors = map.floors.map((f) => {
       if (f.floorIndex !== activeFloor) return f
       const newOverlay = f.overlay.map((r) => [...r])
@@ -375,6 +402,7 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
     set({ map: newMap })
+    if (!skipHistory) get().pushHistory()
     get().runValidation()
   },
 
@@ -386,8 +414,6 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     const oldTile = floor.base[row]?.[col]
     const wasStairsOrElevator = oldTile === 'stairs' || oldTile === 'elevator'
-
-    if (!skipHistory) get().pushHistory()
 
     const newFloors = map.floors.map((f) => {
       if (f.floorIndex !== activeFloor) return f
@@ -405,6 +431,7 @@ export const useStore = create<EditorStore>((set, get) => ({
 
     const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
     set({ map: newMap })
+    if (!skipHistory) get().pushHistory()
     get().runValidation()
   },
 
@@ -412,9 +439,139 @@ export const useStore = create<EditorStore>((set, get) => ({
     set({ selection: sel })
   },
 
+  pasteRegion: (sourceStartRow, sourceStartCol, sourceEndRow, sourceEndCol, offsetRow, offsetCol) => {
+    const { map, activeFloor } = get()
+    const floor = map.floors.find((f) => f.floorIndex === activeFloor)
+    if (!floor) return
+    if (offsetRow === 0 && offsetCol === 0) return
+
+    const newFloors = map.floors.map((f) => {
+      if (f.floorIndex !== activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      const newMeta = { ...f.meta }
+      let hasRoom = false
+
+      for (let r = sourceStartRow; r <= sourceEndRow; r++) {
+        for (let c = sourceStartCol; c <= sourceEndCol; c++) {
+          const tr = r + offsetRow
+          const tc = c + offsetCol
+          if (tr < 0 || tr >= f.height || tc < 0 || tc >= f.width) continue
+
+          const srcBase = f.base[r][c]
+          if (srcBase) {
+            newBase[tr][tc] = srcBase
+          }
+          const srcOverlay = f.overlay[r][c]
+          if (srcOverlay) {
+            newOverlay[tr][tc] = srcOverlay
+            if (srcOverlay === 'room') {
+              hasRoom = true
+              if (!newMeta[`${tr},${tc}`]) {
+                newMeta[`${tr},${tc}`] = { label: '' }
+              }
+            }
+          }
+        }
+      }
+
+      let result = { ...f, base: newBase, overlay: newOverlay, meta: newMeta }
+      if (hasRoom) result = cleanupRoomMeta(result)
+      return result
+    })
+
+    const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
+    set({ map: newMap })
+    get().pushHistory()
+    get().runValidation()
+  },
+
+  flipSelectionHorizontal: () => {
+    const { map, activeFloor, selection } = get()
+    if (!selection) return
+    const floor = map.floors.find((f) => f.floorIndex === activeFloor)
+    if (!floor) return
+
+    const { startRow, startCol, endRow, endCol } = selection
+    const newFloors = map.floors.map((f) => {
+      if (f.floorIndex !== activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      let hasRoom = false
+
+      for (let r = startRow; r <= endRow; r++) {
+        for (let c = startCol; c <= Math.floor((startCol + endCol) / 2); c++) {
+          const mirrorC = endCol - (c - startCol)
+          if (mirrorC === c) continue
+
+          const tmpBase = newBase[r][c]
+          newBase[r][c] = newBase[r][mirrorC]
+          newBase[r][mirrorC] = tmpBase
+
+          const tmpOverlay = newOverlay[r][c]
+          newOverlay[r][c] = newOverlay[r][mirrorC]
+          newOverlay[r][mirrorC] = tmpOverlay
+
+          if (newOverlay[r][c] === 'room') hasRoom = true
+          if (newOverlay[r][mirrorC] === 'room') hasRoom = true
+        }
+      }
+
+      let result = { ...f, base: newBase, overlay: newOverlay }
+      if (hasRoom) result = cleanupRoomMeta(result)
+      return result
+    })
+
+    const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
+    set({ map: newMap })
+    get().pushHistory()
+    get().runValidation()
+  },
+
+  flipSelectionVertical: () => {
+    const { map, activeFloor, selection } = get()
+    if (!selection) return
+    const floor = map.floors.find((f) => f.floorIndex === activeFloor)
+    if (!floor) return
+
+    const { startRow, startCol, endRow, endCol } = selection
+    const newFloors = map.floors.map((f) => {
+      if (f.floorIndex !== activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      let hasRoom = false
+
+      for (let c = startCol; c <= endCol; c++) {
+        for (let r = startRow; r <= Math.floor((startRow + endRow) / 2); r++) {
+          const mirrorR = endRow - (r - startRow)
+          if (mirrorR === r) continue
+
+          const tmpBase = newBase[r][c]
+          newBase[r][c] = newBase[mirrorR][c]
+          newBase[mirrorR][c] = tmpBase
+
+          const tmpOverlay = newOverlay[r][c]
+          newOverlay[r][c] = newOverlay[mirrorR][c]
+          newOverlay[mirrorR][c] = tmpOverlay
+
+          if (newOverlay[r][c] === 'room') hasRoom = true
+          if (newOverlay[mirrorR][c] === 'room') hasRoom = true
+        }
+      }
+
+      let result = { ...f, base: newBase, overlay: newOverlay }
+      if (hasRoom) result = cleanupRoomMeta(result)
+      return result
+    })
+
+    const newMap = { ...map, floors: newFloors, updatedAt: new Date().toISOString() }
+    set({ map: newMap })
+    get().pushHistory()
+    get().runValidation()
+  },
+
   setTileMeta: (row, col, meta) => {
     const { map, activeFloor } = get()
-    get().pushHistory()
 
     const isConnMeta = 'toFloorSuperior' in meta || 'toFloorInferior' in meta || 'connectedFloors' in meta
 
@@ -500,7 +657,7 @@ export const useStore = create<EditorStore>((set, get) => ({
 
   runSimulation: () => {
     const { map, simulationRoomA, simulationRoomB, simulationFloorA, simulationRowA, simulationColA, simulationFloorB, simulationRowB, simulationColB, simulationOptions } = get()
-    set({ simulationStatus: 'running' })
+    set({ simulationStatus: 'running', simulationPaused: false, pendingFloor: null })
 
     const fromDests: Array<{ floorIndex: number; row: number; col: number }> = simulationRoomA
       ? resolveDestination(map, simulationRoomA)
@@ -558,8 +715,6 @@ export const useStore = create<EditorStore>((set, get) => ({
     const newIndex = maxIndex + 1
     const order = map.floors.length
 
-    get().pushHistory()
-
     const floor = createDefaultFloor(newIndex, label ?? `Floor ${newIndex + 1}`, order)
     set({
       map: {
@@ -569,6 +724,7 @@ export const useStore = create<EditorStore>((set, get) => ({
       },
       activeFloor: newIndex,
     })
+    get().pushHistory()
     get().runValidation()
   },
 
@@ -576,8 +732,6 @@ export const useStore = create<EditorStore>((set, get) => ({
     const { map } = get()
     const source = map.floors.find((f) => f.floorIndex === floorIndex)
     if (!source) return
-
-    get().pushHistory()
 
     const maxIndex = Math.max(...map.floors.map((f) => f.floorIndex), -1)
     const newIndex = maxIndex + 1
@@ -617,14 +771,13 @@ export const useStore = create<EditorStore>((set, get) => ({
       },
       activeFloor: newIndex,
     })
+    get().pushHistory()
     get().runValidation()
   },
 
   removeFloor: (floorIndex) => {
     const { map } = get()
     if (map.floors.length <= 1) return
-
-    get().pushHistory()
 
     const newFloors = map.floors.filter((f) => f.floorIndex !== floorIndex)
     const newMap = {
@@ -633,30 +786,32 @@ export const useStore = create<EditorStore>((set, get) => ({
       defaultFloor: map.defaultFloor === floorIndex ? newFloors[0]!.floorIndex : map.defaultFloor,
       updatedAt: new Date().toISOString(),
     }
-    set({ map: newMap, activeFloor: Math.min(get().activeFloor, newFloors.length - 1) })
+    const activeFloor = newFloors.some((f) => f.floorIndex === get().activeFloor) ? get().activeFloor : newFloors[0]!.floorIndex
+    set({ map: newMap, activeFloor })
+    get().pushHistory()
     get().runValidation()
   },
 
   renameFloor: (floorIndex, label) => {
     const { map } = get()
-    get().pushHistory()
 
     const newFloors = map.floors.map((f) =>
       f.floorIndex === floorIndex ? { ...f, label } : f,
     )
 
     set({ map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    get().pushHistory()
   },
 
   setFloorBuilding: (floorIndex, buildingId) => {
     const { map } = get()
-    get().pushHistory()
 
     const newFloors = map.floors.map((f) =>
       f.floorIndex === floorIndex ? { ...f, buildingId } : f,
     )
 
     set({ map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    get().pushHistory()
   },
 
   addBuilding: (name) => {
@@ -706,19 +861,17 @@ export const useStore = create<EditorStore>((set, get) => ({
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
     if (swapIdx < 0 || swapIdx >= floors.length) return
 
-    get().pushHistory()
-
     const temp = floors[idx]!
     floors[idx] = floors[swapIdx]!
     floors[swapIdx] = { ...temp, order: floors[swapIdx]!.order }
     floors[idx] = { ...floors[idx]!, order: temp.order }
 
     set({ map: { ...map, floors, updatedAt: new Date().toISOString() } })
+    get().pushHistory()
   },
 
   setFloorSize: (floorIndex, width, height) => {
     const { map } = get()
-    get().pushHistory()
 
     const newFloors = map.floors.map((f) => {
       if (f.floorIndex !== floorIndex) return f
@@ -747,6 +900,7 @@ export const useStore = create<EditorStore>((set, get) => ({
     })
 
     set({ map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    get().pushHistory()
     get().runValidation()
   },
 
@@ -828,14 +982,14 @@ export const useStore = create<EditorStore>((set, get) => ({
     }
   },
 
-  canUndo: () => get().historyIndex >= 0,
+  canUndo: () => get().historyIndex > 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
 
   undo: () => {
     const { historyIndex, history } = get()
-    if (historyIndex < 0) return
+    if (historyIndex <= 0) return
 
-    const entry = history[historyIndex]
+    const entry = history[historyIndex - 1]
     if (!entry) return
 
     const { map } = get()
@@ -899,3 +1053,11 @@ export const useStore = create<EditorStore>((set, get) => ({
     }
   },
 }))
+
+let prevMap = _initialMap
+useStore.subscribe((s) => {
+  if (s.map !== prevMap) {
+    prevMap = s.map
+    saveMapToStorage(s.map)
+  }
+})

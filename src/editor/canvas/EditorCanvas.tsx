@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, type MouseEvent } from 'react'
 import { useStore } from '../store'
 import { renderFrame, type RenderState, type GhostGroupInfo } from './renderer'
-import { getAllDestinations, findRoomRegions, findOverlayGroups } from '../../core/roomRegions'
-import type { RoomRegion, OverlayGroup, BuildingMap, MapFloor } from '../../core/types'
-import { setupInteraction, getStraightGhost, getFillGhost } from './interaction'
+import { getAllDestinations, OverlayGroup, findRoomRegions, findOverlayGroups } from '../../core/roomRegions'
+import type { RoomRegion, BuildingMap, MapFloor } from '../../core/types'
+import { setupInteraction, getStraightGhost, getFillGhost, getRectGhost, getSelectGhost, getDragGhost, getPasteGhost, getCutSourceBounds } from './interaction'
 import { getTileStyles } from '../../theme/tileStyles'
 
 function findStairElevatorGroups(floor: MapFloor): GhostGroupInfo[] {
@@ -108,6 +108,7 @@ export default function EditorCanvas() {
     let lastDestsMap: BuildingMap | null = null
     let cachedExitGroups: { floorIdx: number; groups: OverlayGroup[] } | null = null
     let cachedDoorGroups: { floorIdx: number; groups: OverlayGroup[] } | null = null
+    let lastMap: BuildingMap | null = null
 
     function computeGhostGroups(
       s: ReturnType<typeof useStore.getState>,
@@ -161,18 +162,33 @@ export default function EditorCanvas() {
           if (parts) {
             const curFloor = Number(parts[0])
             if (curFloor !== s.activeFloor) {
-              s.setActiveFloor(curFloor)
+              // After resume, head may be on old floor while activeFloor
+              // was already switched. Skip to first node on activeFloor.
+              let skip = headIdx
+              while (skip < path.length) {
+                const p = path[skip]?.split(':')
+                if (p && Number(p[0]) === s.activeFloor) break
+                skip++
+              }
+              if (skip < path.length && skip > headIdx) {
+                head = skip
+                animRef.current = skip
+              } else {
+                s.setActiveFloor(curFloor)
+              }
             }
           }
 
-          const nextIdx = headIdx + 1
+          const headIdx2 = Math.floor(head)
+          animRef.current = headIdx2
+          const nextIdx = headIdx2 + 1
           if (nextIdx < path.length) {
             const nextParts = path[nextIdx]?.split(':')
             if (nextParts) {
               const nextFloor = Number(nextParts[0])
               if (nextFloor !== s.activeFloor) {
-                head = headIdx
-                animRef.current = headIdx
+                head = headIdx2
+                animRef.current = headIdx2
                 s.setSimulationPaused(true, nextFloor)
               }
             }
@@ -187,6 +203,13 @@ export default function EditorCanvas() {
       }
 
       const curFloor = s.map.floors.find((f) => f.floorIndex === s.activeFloor)
+
+      if (s.map !== lastMap) {
+        cachedFloorRegions = null
+        cachedExitGroups = null
+        cachedDoorGroups = null
+        lastMap = s.map
+      }
 
       let regions: RoomRegion[] | undefined
       if (curFloor) {
@@ -255,7 +278,12 @@ export default function EditorCanvas() {
         animHead: animRef.current,
         showGrid: true,
         straightGhost: getStraightGhost(),
+        rectGhost: getRectGhost(),
         fillGhost: getFillGhost(),
+        selectGhost: getSelectGhost(),
+        dragGhost: getDragGhost(),
+        pasteGhost: getPasteGhost(),
+        cutSourceBounds: getCutSourceBounds(),
         fillGhostFill: (() => {
           const lt = s.lastTileTool
           if (lt && lt !== 'fill' && lt !== 'eraser' && lt !== 'select' && lt !== 'eyedrop' && lt !== 'fillRoom') {

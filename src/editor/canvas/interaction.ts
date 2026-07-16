@@ -1,7 +1,14 @@
 import { useStore } from '../store'
 import type { TileType, OverlayType } from '../../core/types'
-import { cleanupRoomMeta } from '../../core/roomRegions'
+import { cleanupRoomMeta, cleanupStairsElevatorMeta } from '../../core/roomRegions'
 import { matchKeybind } from '../../core/keybinds'
+
+interface ClipboardData {
+  rows: number
+  cols: number
+  base: TileType[][]
+  overlay: OverlayType[][]
+}
 
 interface InteractionState {
   isPanning: boolean
@@ -13,8 +20,33 @@ interface InteractionState {
     startRow: number; startCol: number
     endRow: number; endCol: number
   } | null
+  rectGhost: {
+    startRow: number; startCol: number
+    endRow: number; endCol: number
+  } | null
   fillGhost: Array<{ row: number; col: number }> | null
+  selectGhost: {
+    startRow: number; startCol: number
+    endRow: number; endCol: number
+  } | null
+  dragGhost: {
+    sourceStartRow: number; sourceStartCol: number
+    sourceEndRow: number; sourceEndCol: number
+    anchorRow: number; anchorCol: number
+    currentRow: number; currentCol: number
+  } | null
+  pasteGhost: {
+    currentRow: number
+    currentCol: number
+    rows: number
+    cols: number
+    base: TileType[][]
+    overlay: OverlayType[][]
+  } | null
 }
+
+let clipboard: ClipboardData | null = null
+let cutSourceBounds: { startRow: number; startCol: number; endRow: number; endCol: number } | null = null
 
 const state: InteractionState = {
   isPanning: false,
@@ -23,7 +55,11 @@ const state: InteractionState = {
   isDrawing: false,
   isRightErase: false,
   straightGhost: null,
+  rectGhost: null,
   fillGhost: null,
+  selectGhost: null,
+  dragGhost: null,
+  pasteGhost: null,
 }
 
 export function getStraightGhost() {
@@ -32,6 +68,26 @@ export function getStraightGhost() {
 
 export function getFillGhost() {
   return state.fillGhost
+}
+
+export function getRectGhost() {
+  return state.rectGhost
+}
+
+export function getSelectGhost() {
+  return state.selectGhost
+}
+
+export function getDragGhost() {
+  return state.dragGhost
+}
+
+export function getPasteGhost() {
+  return state.pasteGhost
+}
+
+export function getCutSourceBounds() {
+  return cutSourceBounds
 }
 
 function getGridPos(
@@ -66,7 +122,7 @@ export function setupInteraction(
     const { offsetX, offsetY } = getOffset()
     const tileSize = getTileSize()
 
-    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+    if (e.button === 1) {
       state.isPanning = true
       state.lastPanX = e.clientX - offsetX
       state.lastPanY = e.clientY - offsetY
@@ -102,6 +158,13 @@ export function setupInteraction(
       return
     }
 
+    if (state.pasteGhost) {
+      if (e.button === 0) {
+        commitPaste()
+      }
+      return
+    }
+
     const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
     if (!pos || pos.row < 0 || pos.col < 0) {
       store.setSelection(null)
@@ -117,8 +180,28 @@ export function setupInteraction(
 
     const tool = store.activeTool
 
+    if (!store.straightMode && !e.shiftKey && (tool === 'wall' || tool === 'floor' || tool === 'void' || tool === 'dirt_path' || tool === 'room')) {
+      state.rectGhost = { startRow: pos.row, startCol: pos.col, endRow: pos.row, endCol: pos.col }
+      state.isDrawing = true
+      return
+    }
+
     if (tool === 'select') {
-      store.setSelection(pos)
+      if (e.altKey && store.selection) {
+        const { startRow, startCol, endRow, endCol } = store.selection
+        if (pos.row >= startRow && pos.row <= endRow && pos.col >= startCol && pos.col <= endCol) {
+          state.dragGhost = {
+            sourceStartRow: startRow, sourceStartCol: startCol,
+            sourceEndRow: endRow, sourceEndCol: endCol,
+            anchorRow: pos.row, anchorCol: pos.col,
+            currentRow: pos.row, currentCol: pos.col,
+          }
+          state.isDrawing = true
+          return
+        }
+      }
+      state.selectGhost = { startRow: pos.row, startCol: pos.col, endRow: pos.row, endCol: pos.col }
+      state.isDrawing = true
       return
     }
 
@@ -189,16 +272,16 @@ export function setupInteraction(
         }
       }
 
-      store.pushHistory()
       const newFloors = map.floors.map((f) =>
         f.floorIndex === activeFloor ? { ...f, base: newBase, overlay: newOverlay } : f,
       )
       useStore.setState({ map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() } })
+      store.pushHistory()
       store.runValidation()
       return
     }
 
-      if (tool === 'fillRoom') {
+    if (tool === 'fillRoom') {
       const f = floor
       const bt = f.base[pos.row]?.[pos.col]
       if (bt !== 'floor') return
@@ -233,7 +316,6 @@ export function setupInteraction(
       }
 
       if (enclosed && visited.size > 0) {
-        store.pushHistory()
         for (const key of visited) {
           const [r, c] = key.split(',').map(Number)
           newOverlay[r!][c!] = 'room'
@@ -247,6 +329,7 @@ export function setupInteraction(
         useStore.setState({
           map: { ...map, floors: newFloors, updatedAt: new Date().toISOString() },
         })
+        store.pushHistory()
         store.runValidation()
       }
       return
@@ -260,11 +343,11 @@ export function setupInteraction(
     state.isDrawing = true
 
     if (tool === 'eraser') {
-      store.erase(pos.row, pos.col)
+      store.erase(pos.row, pos.col, true)
     } else if (store.activeTab === 'base') {
-      store.paint(pos.row, pos.col)
+      store.paint(pos.row, pos.col, true)
     } else {
-      store.paintOverlay(pos.row, pos.col)
+      store.paintOverlay(pos.row, pos.col, true)
     }
   }
 
@@ -331,6 +414,47 @@ export function setupInteraction(
       return
     }
 
+    if (state.rectGhost) {
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      if (!pos) return
+      state.rectGhost = { ...state.rectGhost, endRow: pos.row, endCol: pos.col }
+      return
+    }
+
+    if (state.selectGhost) {
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      if (!pos) return
+      const held = e.buttons & 1
+      if (!held) {
+        state.selectGhost = null
+        state.isDrawing = false
+        return
+      }
+      state.selectGhost = { ...state.selectGhost, endRow: pos.row, endCol: pos.col }
+      return
+    }
+
+    if (state.dragGhost) {
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      if (!pos) return
+      const held = e.buttons & 1
+      if (!held) {
+        state.dragGhost = null
+        state.isDrawing = false
+        return
+      }
+      state.dragGhost = { ...state.dragGhost, currentRow: pos.row, currentCol: pos.col }
+      return
+    }
+
+    if (state.pasteGhost) {
+      const pos = getGridPos(e.clientX, e.clientY, canvas, tileSize, offsetX, offsetY)
+      if (pos) {
+        state.pasteGhost = { ...state.pasteGhost, currentRow: pos.row, currentCol: pos.col }
+      }
+      return
+    }
+
     if (state.isDrawing) {
       const held = (e.buttons & 1) || (e.buttons & 2)
       if (!held) {
@@ -346,7 +470,6 @@ export function setupInteraction(
 
       if (state.isRightErase || store.activeTool === 'eraser') {
         if (state.isRightErase && store.activeTab === 'overlay' && floor.overlay[pos.row]?.[pos.col]) {
-          store.pushHistory()
           const newFloors = store.map.floors.map((f) => {
             if (f.floorIndex !== store.activeFloor) return f
             const newOverlay = f.overlay.map((r) => [...r])
@@ -358,12 +481,12 @@ export function setupInteraction(
           })
           store.runValidation()
         } else {
-          store.erase(pos.row, pos.col)
+          store.erase(pos.row, pos.col, true)
         }
       } else if (store.activeTab === 'base') {
-        store.paint(pos.row, pos.col)
+        store.paint(pos.row, pos.col, true)
       } else {
-        store.paintOverlay(pos.row, pos.col)
+        store.paintOverlay(pos.row, pos.col, true)
       }
       return
     }
@@ -401,25 +524,170 @@ export function setupInteraction(
     const dr = Math.sign(endRow - startRow)
     const dc = Math.sign(endCol - startCol)
     const steps = Math.max(Math.abs(endRow - startRow), Math.abs(endCol - startCol))
+    const tool = store.activeTool
 
-    store.pushHistory()
-    for (let i = 0; i <= steps; i++) {
-      const r = startRow + dr * i
-      const c = startCol + dc * i
-      if (r < 0 || r >= floor.height || c < 0 || c >= floor.width) continue
-      const tool = store.activeTool
-      if (tool === 'eraser') {
-        store.erase(r, c, true)
-      } else if (store.activeTab === 'base') {
-        store.paint(r, c, true)
-      } else {
-        store.paintOverlay(r, c, true)
+    const newFloors = store.map.floors.map((f) => {
+      if (f.floorIndex !== store.activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      const newMeta = { ...f.meta }
+
+      for (let i = 0; i <= steps; i++) {
+        const r = startRow + dr * i
+        const c = startCol + dc * i
+        if (r < 0 || r >= f.height || c < 0 || c >= f.width) continue
+
+        if (tool === 'eraser' || tool === 'select' || tool === 'fill' || tool === 'eyedrop') {
+          newBase[r][c] = 'void'
+          newOverlay[r][c] = null
+          delete newMeta[`${r},${c}`]
+        } else if (store.activeTab === 'base') {
+          const tile = tool as TileType
+          newBase[r][c] = tile
+          const ov = newOverlay[r][c]
+          if (ov === 'room') {
+            newOverlay[r][c] = null
+            delete newMeta[`${r},${c}`]
+          } else if (ov === 'door' || ov === 'exit_door') {
+            newOverlay[r][c] = null
+          }
+        } else {
+          const overlay = tool as OverlayType
+          if (overlay === 'room' && newBase[r][c] !== 'floor') continue
+          if ((overlay === 'door' || overlay === 'exit_door') && newBase[r][c] !== 'wall') continue
+          newOverlay[r][c] = overlay
+          if (overlay === 'room') {
+            if (!newMeta[`${r},${c}`]) {
+              newMeta[`${r},${c}`] = { label: '' }
+            }
+          }
+        }
       }
-    }
+
+      let result = { ...f, base: newBase, overlay: newOverlay, meta: newMeta }
+      result = cleanupRoomMeta(result)
+      result = cleanupStairsElevatorMeta(result)
+      return result
+    })
+
+    useStore.setState({ map: { ...store.map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    store.pushHistory()
+    store.runValidation()
+  }
+
+  function paintRectFill(
+    store: ReturnType<typeof useStore.getState>,
+    startRow: number, startCol: number,
+    endRow: number, endCol: number,
+  ) {
+    const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
+    if (!floor) return
+
+    const minRow = Math.max(0, Math.min(startRow, endRow))
+    const maxRow = Math.min(floor.height - 1, Math.max(startRow, endRow))
+    const minCol = Math.max(0, Math.min(startCol, endCol))
+    const maxCol = Math.min(floor.width - 1, Math.max(startCol, endCol))
+
+    if (minRow === maxRow && minCol === maxCol) return
+
+    const tool = store.activeTool
+    const tile = tool as TileType
+
+    const newFloors = store.map.floors.map((f) => {
+      if (f.floorIndex !== store.activeFloor) return f
+      const newBase = f.base.map((r) => [...r])
+      const newOverlay = f.overlay.map((r) => [...r])
+      const newMeta = { ...f.meta }
+      let hasRoom = false
+
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+          if (tool === 'wall') {
+            const onBorder = r === minRow || r === maxRow || c === minCol || c === maxCol
+            if (!onBorder) continue
+            newBase[r][c] = 'wall'
+            const ov = newOverlay[r][c]
+            if (ov === 'room') {
+              newOverlay[r][c] = null
+              delete newMeta[`${r},${c}`]
+            } else if (ov === 'exit_door') {
+              newOverlay[r][c] = null
+            }
+          } else if (tool === 'room') {
+            if (newBase[r][c] !== 'floor') continue
+            newOverlay[r][c] = 'room'
+            hasRoom = true
+          } else {
+            newBase[r][c] = tile
+            const ov = newOverlay[r][c]
+            if (ov === 'room' || ov === 'door' || ov === 'exit_door') {
+              newOverlay[r][c] = null
+              if (ov === 'room') {
+                delete newMeta[`${r},${c}`]
+              }
+            }
+          }
+        }
+      }
+
+      let result = { ...f, base: newBase, overlay: newOverlay, meta: newMeta }
+      if (hasRoom || tool === 'room' || tool === 'void') result = cleanupRoomMeta(result)
+      return result
+    })
+
+    useStore.setState({ map: { ...store.map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    store.pushHistory()
+    store.runValidation()
   }
 
   function handleMouseUp() {
+    if (state.selectGhost) {
+      const { startRow, startCol, endRow, endCol } = state.selectGhost
+      state.selectGhost = null
+      state.isDrawing = false
+      const store = useStore.getState()
+      store.setSelection({
+        startRow: Math.min(startRow, endRow),
+        startCol: Math.min(startCol, endCol),
+        endRow: Math.max(startRow, endRow),
+        endCol: Math.max(startCol, endCol),
+      })
+      return
+    }
+
+    if (state.dragGhost) {
+      const { sourceStartRow, sourceStartCol, sourceEndRow, sourceEndCol, anchorRow, anchorCol, currentRow, currentCol } = state.dragGhost
+      state.dragGhost = null
+      state.isDrawing = false
+      const store = useStore.getState()
+      store.pasteRegion(
+        sourceStartRow, sourceStartCol, sourceEndRow, sourceEndCol,
+        currentRow - anchorRow, currentCol - anchorCol,
+      )
+      store.setSelection({
+        startRow: sourceStartRow + currentRow - anchorRow,
+        endRow: sourceEndRow + currentRow - anchorRow,
+        startCol: sourceStartCol + currentCol - anchorCol,
+        endCol: sourceEndCol + currentCol - anchorCol,
+      });
+      return
+    }
+
+    if (state.rectGhost) {
+      const store = useStore.getState()
+      const { startRow, startCol, endRow, endCol } = state.rectGhost
+      state.rectGhost = null
+      state.isDrawing = false
+      paintRectFill(store, startRow, startCol, endRow, endCol)
+      return
+    }
+
     state.isPanning = false
+
+    if (state.isDrawing) {
+      useStore.getState().pushHistory()
+    }
+
     state.isDrawing = false
     state.isRightErase = false
 
@@ -472,7 +740,64 @@ export function setupInteraction(
         filename: `${data.map.name}.json`,
         data,
       }),
-    }).catch(() => {})
+    }).catch(() => { })
+  }
+
+  function commitPaste() {
+    if (!state.pasteGhost) return
+    const store = useStore.getState()
+    const { currentRow, currentCol, rows, cols, base, overlay } = state.pasteGhost
+    const cutBounds = cutSourceBounds
+    cutSourceBounds = null
+
+    const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
+    if (!floor) return
+
+    const newFloors = store.map.floors.map((f) => {
+      if (f.floorIndex !== store.activeFloor) return f
+      let newBase = f.base.map((r) => [...r])
+      let newOverlay = f.overlay.map((r) => [...r])
+      let hasRoom = false
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const tr = currentRow + r
+          const tc = currentCol + c
+          if (tr < 0 || tr >= f.height || tc < 0 || tc >= f.width) continue
+          newBase[tr][tc] = base[r][c]
+          if (overlay[r][c]) {
+            newOverlay[tr][tc] = overlay[r][c]
+            if (overlay[r][c] === 'room') hasRoom = true
+          }
+        }
+      }
+
+      if (cutBounds) {
+        for (let r = cutBounds.startRow; r <= cutBounds.endRow; r++) {
+          for (let c = cutBounds.startCol; c <= cutBounds.endCol; c++) {
+            if (r < 0 || r >= f.height || c < 0 || c >= f.width) continue
+            newBase[r][c] = 'floor'
+            newOverlay[r][c] = null
+          }
+        }
+        hasRoom = true
+      }
+
+      let result = { ...f, base: newBase, overlay: newOverlay }
+      if (hasRoom) result = cleanupRoomMeta(result)
+      return result
+    })
+
+    useStore.setState({ map: { ...store.map, floors: newFloors, updatedAt: new Date().toISOString() } })
+    store.setSelection({
+      startRow: currentRow,
+      startCol: currentCol,
+      endRow: currentRow + rows - 1,
+      endCol: currentCol + cols - 1,
+    })
+    store.pushHistory()
+    store.runValidation()
+    state.pasteGhost = null
   }
 
   function handleKeyDown(e: KeyboardEvent) {
@@ -484,6 +809,18 @@ export function setupInteraction(
         document.activeElement.tagName === 'TEXTAREA' ||
         document.activeElement.tagName === 'SELECT')
     ) {
+      return
+    }
+
+    if (e.key === 'Enter' && state.pasteGhost) {
+      e.preventDefault()
+      commitPaste()
+      return
+    }
+
+    if (e.key === 'Escape' && state.pasteGhost) {
+      state.pasteGhost = null
+      cutSourceBounds = null
       return
     }
 
@@ -514,6 +851,66 @@ export function setupInteraction(
       case 'mode-simulate': store.setMode('simulate'); break
       case 'mode-preview': store.setMode('preview'); break
       case 'add-floor': store.addFloor(); break
+      case 'cut': {
+        const sel = store.selection
+        if (!sel) break
+        const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
+        if (!floor) break
+        const { startRow, startCol, endRow, endCol } = sel
+        const rows = endRow - startRow + 1
+        const cols = endCol - startCol + 1
+        const base: TileType[][] = []
+        const overlay: OverlayType[][] = []
+        for (let r = startRow; r <= endRow; r++) {
+          const baseRow: TileType[] = []
+          const overlayRow: OverlayType[] = []
+          for (let c = startCol; c <= endCol; c++) {
+            baseRow.push(floor.base[r][c])
+            overlayRow.push(floor.overlay[r][c])
+          }
+          base.push(baseRow)
+          overlay.push(overlayRow)
+        }
+        clipboard = { rows, cols, base, overlay }
+        cutSourceBounds = { startRow, startCol, endRow, endCol }
+        state.pasteGhost = {
+          currentRow: 0, currentCol: 0,
+          rows, cols, base, overlay,
+        }
+        break
+      }
+      case 'copy': {
+        const sel = store.selection
+        if (!sel) break
+        const floor = store.map.floors.find((f) => f.floorIndex === store.activeFloor)
+        if (!floor) break
+        const { startRow, startCol, endRow, endCol } = sel
+        const rows = endRow - startRow + 1
+        const cols = endCol - startCol + 1
+        const base: TileType[][] = []
+        const overlay: OverlayType[][] = []
+        for (let r = startRow; r <= endRow; r++) {
+          const baseRow: TileType[] = []
+          const overlayRow: OverlayType[] = []
+          for (let c = startCol; c <= endCol; c++) {
+            baseRow.push(floor.base[r][c])
+            overlayRow.push(floor.overlay[r][c])
+          }
+          base.push(baseRow)
+          overlay.push(overlayRow)
+        }
+        clipboard = { rows, cols, base, overlay }
+        cutSourceBounds = null
+        break
+      };
+      case 'paste': {
+        if (!clipboard) break
+        state.pasteGhost = {
+          currentRow: 0, currentCol: 0,
+          ...clipboard,
+        }
+        break
+      }
     }
   }
 
@@ -526,7 +923,10 @@ export function setupInteraction(
     state.isDrawing = false
     state.isRightErase = false
     state.straightGhost = null
+    state.rectGhost = null
     state.fillGhost = null
+    state.pasteGhost = null
+    cutSourceBounds = null
     tooltip.classList.add('hidden')
   }
 
