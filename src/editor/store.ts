@@ -138,7 +138,31 @@ export interface EditorStore {
   toggleTheme: () => void
 }
 
-function getInitialMap(): BuildingMap {
+const STORAGE_KEY = 'mapcreator-map'
+
+function loadMapFromStorage(): BuildingMap | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.floors) && parsed.floors.length > 0) {
+      return parsed as BuildingMap
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function saveMapToStorage(map: BuildingMap): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
+  } catch {
+    // storage full or unavailable
+  }
+}
+
+function createInitialMap(): BuildingMap {
   const now = new Date().toISOString()
   return {
     id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
@@ -152,11 +176,12 @@ function getInitialMap(): BuildingMap {
   }
 }
 
-const _initialMap = getInitialMap()
+const _initialMap = loadMapFromStorage() ?? createInitialMap()
+const _initialActiveFloor = _initialMap.floors.some((f) => f.floorIndex === 0) ? 0 : _initialMap.floors[0]!.floorIndex
 
 export const useStore = create<EditorStore>((set, get) => ({
   map: _initialMap,
-  activeFloor: 0,
+  activeFloor: _initialActiveFloor,
   activeTool: 'select',
   lastTileTool: 'wall',
   activeTab: 'base',
@@ -761,7 +786,8 @@ export const useStore = create<EditorStore>((set, get) => ({
       defaultFloor: map.defaultFloor === floorIndex ? newFloors[0]!.floorIndex : map.defaultFloor,
       updatedAt: new Date().toISOString(),
     }
-    set({ map: newMap, activeFloor: Math.min(get().activeFloor, newFloors.length - 1) })
+    const activeFloor = newFloors.some((f) => f.floorIndex === get().activeFloor) ? get().activeFloor : newFloors[0]!.floorIndex
+    set({ map: newMap, activeFloor })
     get().pushHistory()
     get().runValidation()
   },
@@ -1027,3 +1053,11 @@ export const useStore = create<EditorStore>((set, get) => ({
     }
   },
 }))
+
+let prevMap = _initialMap
+useStore.subscribe((s) => {
+  if (s.map !== prevMap) {
+    prevMap = s.map
+    saveMapToStorage(s.map)
+  }
+})
