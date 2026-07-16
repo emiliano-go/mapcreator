@@ -78,6 +78,19 @@ Right-click and drag to erase continuously.
 
 Hold Shift while clicking to enter straight line mode. Click a start tile, move the mouse, and click an end tile. The line is constrained to the row or column.
 
+When the Room, Floor, Void or Wall tool is selected, it draws a rectangle by default. Press Shift to temporarily draw single tiles instead.
+
+## Selection
+
+| Action | Input |
+|---|---|
+| Duplicate block | Select block then Alt + drag |
+| Copy | Ctrl + C |
+| Paste | Ctrl + V |
+| Cut | Ctrl + X |
+| Flip horizontal | Select block then press Flip Horizontal Button |
+| Flip vertical | Select block then press Flip Vertical Button |
+
 ## Layers
 
 The editor has two layers visible in the tool palette.
@@ -145,6 +158,10 @@ The path is rendered on the canvas with an animated head.
 
 Switch to Preview mode to see the map without tool overlays.
 This matches what the viewer displays.
+
+## Data persistence
+
+All maps are saved automatically to your browser's localStorage. Your work persists across sessions without manual saving.
 
 ## Next steps
 
